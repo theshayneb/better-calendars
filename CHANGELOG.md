@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.9] - 2026-10-11
+
+- Event notes: properties your template leaves empty are now filled in by name (setting "Fill empty properties", on by default). `Date`, `End_Date` and `People` (names set in the settings), plus `Title`, `Start`, `End`, `Time`, `Location`, `Link`, `Organizer`, `Calendar` and `Description`. A template with just `Date:`, `End_Date:`, `People:` no longer gives empty properties. Properties with a value or a `{{variable}}` are left as they are.
+- New setting "People property" (default `People`).
+
 ## [1.0.8] - 2026-10-11
 
 - Renamed the command "Refresh calendars and import events" to "Refresh calendars, import events and create daily notes ahead", since it also creates the daily notes set under "Create daily notes ahead". The refresh button and "Import now" setting say so too. Hotkeys assigned to the command keep working.

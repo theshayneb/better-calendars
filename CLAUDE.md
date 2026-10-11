@@ -26,6 +26,7 @@ npm run build
 - The event's date lives in the owner's own property (`settings.eventDateProperty`, default `Date`); 1.0.0 notes may still have `event_date`, which is read as a fallback and removed when the event moves.
 - `{{end_date}}` is inclusive (all-day DTEND is exclusive); `settings.eventEndDateProperty` (default `End_Date`) is updated on reschedule but never added.
 - New notes are created through `createNote` in `src/util/templater.ts`: it runs one note at a time (Templater shares one `tp` state), marks the path as pending for Templater (so its on-create trigger skips it; re-added after the run for 2 s, since Templater clears it), waits for the metadata cache, then runs `overwrite_file_commands`, so `tp.frontmatter` works.
+- Event templates may just list empty properties (`Date:`, `People:` ...); `fillEmptyProperties` fills them by name (`propertyValues` in the importer). The owner's template works this way.
 - Daily note settings fall back to Periodic Notes (daily enabled), then the core Daily notes plugin.
 - Attendees: parsed with their PARTSTAT (rooms/resources skipped), filtered and matched to person notes (email property, then name, then alias) in `src/util/attendees.ts`.
 - The `event_id` property is hidden with the body class `bc-hide-event-id` (setting `hideEventId`).

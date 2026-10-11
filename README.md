@@ -51,6 +51,21 @@ Event notes can list the guests of a meeting, read from the invite in Google Cal
 - **Linked to your people notes**: a guest is linked to a note in your People folder when the note's `email` property, its name, or one of its `aliases` matches the guest's email or display name. Other guests are written as plain text (display name, or email if Google has no name), or as links if you turn on "Link guests without a note".
 - In a template, `People: {{attendees_property}}` in the properties block gives a list property like `["[[Ann Lee]]", "bob@example.com"]`; `{{attendees_list}}` gives a bulleted list.
 
+### Properties are filled in by name
+
+You don't need variables for the usual properties: leave them empty in your template and Better Calendars fills them in. `Date`, `End_Date` and `People` (names configurable), plus `Title`, `Start`, `End`, `Time`, `Location`, `Link`, `Organizer`, `Calendar` and `Description`. For example:
+
+```
+---
+Date:
+End_Date:
+People:
+Location:
+---
+```
+
+Properties with a value or a `{{variable}}` are left as they are. Turn this off with "Fill empty properties".
+
 Event note templates (a file you choose in settings, or the built-in one) can use:
 
 `{{title}}` `{{date}}` `{{start}}` `{{end}}` `{{end_date}}` (the last day of the event) `{{time}}` `{{duration}}` `{{location}}` `{{meeting_url}}` `{{description}}` `{{organizer}}` `{{attendees}}` `{{attendees_list}}` `{{attendees_wikilinks}}` `{{attendees_property}}` `{{calendar}}` `{{daily_note}}` (a link to that day's daily note) `{{uid}}`. Date variables take a format: `{{start:h:mm A}}`.
