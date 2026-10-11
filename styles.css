@@ -218,6 +218,10 @@
 	height: 14px;
 }
 
+.bc-hide-event-id .metadata-property[data-property-key="event_id"] {
+	display: none;
+}
+
 .bc-wide-input {
 	width: 100%;
 }

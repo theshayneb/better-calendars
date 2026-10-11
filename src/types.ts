@@ -21,6 +21,22 @@ export interface CalendarSource {
 	excludeAllDay: boolean;
 }
 
+export type AttendeeStatus =
+	| "accepted"
+	| "declined"
+	| "tentative"
+	| "needs-action"
+	| "delegated"
+	| "";
+
+export interface Attendee {
+	/** Display name; empty when the feed only has the email address. */
+	name: string;
+	email: string;
+	/** The guest's reply (ICS PARTSTAT). */
+	status: AttendeeStatus;
+}
+
 export interface CalEvent {
 	/**
 	 * Identity of the note that belongs to this event. A one-off event keeps
@@ -38,7 +54,8 @@ export interface CalEvent {
 	location: string;
 	description: string;
 	organizer: string;
-	attendees: string[];
+	/** Guests, without rooms and other resources. */
+	attendees: Attendee[];
 	/** Detected Meet / Zoom / Teams / Webex link, or the first URL found. */
 	meetingUrl: string;
 }

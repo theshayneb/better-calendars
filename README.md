@@ -43,11 +43,19 @@ From then on, Better Calendars checks your calendars every 30 minutes (configura
 - Turn off **Import automatically** for a calendar to only create notes when you click an event in the calendar view.
 - If you use several devices with Obsidian Sync, consider turning off **Import on this device** on all but one, so two devices don't create the same note at the same moment.
 
+### Attendees
+
+Event notes can list the guests of a meeting, read from the invite in Google Calendar:
+
+- **Who**: guests who accepted (default), accepted or said maybe, everyone who didn't decline, or everyone invited. Meeting rooms are never listed. "Leave out attendees" skips people such as yourself.
+- **Linked to your people notes**: a guest is linked to a note in your People folder when the note's `email` property, its name, or one of its `aliases` matches the guest's email or display name. Other guests are written as plain text (display name, or email if Google has no name), or as links if you turn on "Link guests without a note".
+- In a template, `Attendees: {{attendees_property}}` in the properties block gives a list property like `["[[Ann Lee]]", "bob@example.com"]`; `{{attendees_list}}` gives a bulleted list.
+
 Event note templates (a file you choose in settings, or the built-in one) can use:
 
-`{{title}}` `{{date}}` `{{start}}` `{{end}}` `{{time}}` `{{duration}}` `{{location}}` `{{meeting_url}}` `{{description}}` `{{organizer}}` `{{attendees}}` `{{attendees_list}}` `{{attendees_wikilinks}}` `{{calendar}}` `{{daily_note}}` (a link to that day's daily note) `{{uid}}`. Date variables take a format: `{{start:h:mm A}}`.
+`{{title}}` `{{date}}` `{{start}}` `{{end}}` `{{time}}` `{{duration}}` `{{location}}` `{{meeting_url}}` `{{description}}` `{{organizer}}` `{{attendees}}` `{{attendees_list}}` `{{attendees_wikilinks}}` `{{attendees_property}}` `{{calendar}}` `{{daily_note}}` (a link to that day's daily note) `{{uid}}`. Date variables take a format: `{{start:h:mm A}}`.
 
-Better Calendars adds an `event_id` property to each event note; that's how it recognizes the note later. It also sets the date property (`Date` by default) if your template doesn't.
+Better Calendars adds an `event_id` property to each event note; that's how it recognizes the note later. It is hidden in the properties panel unless you turn off "Hide event_id property". It also sets the date property (`Date` by default) if your template doesn't.
 
 ## Privacy
 

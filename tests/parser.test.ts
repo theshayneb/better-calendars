@@ -44,6 +44,27 @@ describe("parseICS", () => {
 		expect(events[0]!.meetingUrl).toBe("https://meet.google.com/abc-defg-hij");
 	});
 
+	it("reads guests with their reply, skipping rooms", () => {
+		const events = parseICS(
+			ics(`
+				BEGIN:VEVENT
+				UID:guests@test
+				DTSTART:20261012T090000Z
+				DTEND:20261012T100000Z
+				SUMMARY:Planning
+				ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN=Ann Lee;X-NUM-GUESTS=0:mailto:ann@example.com
+				ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=DECLINED;CN=bob@example.com;X-NUM-GUESTS=0:mailto:bob@example.com
+				ATTENDEE;CUTYPE=RESOURCE;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN=Room 4;X-NUM-GUESTS=0:mailto:room4@resource.calendar.google.com
+				END:VEVENT
+			`),
+			window
+		);
+		expect(events[0]!.attendees).toEqual([
+			{ name: "Ann Lee", email: "ann@example.com", status: "accepted" },
+			{ name: "", email: "bob@example.com", status: "declined" },
+		]);
+	});
+
 	it("expands recurrences and applies moved and cancelled occurrences", () => {
 		const events = parseICS(
 			ics(`

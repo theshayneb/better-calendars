@@ -1,6 +1,6 @@
 {
 	"name": "better-calendars",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "Calendar sidebar for Obsidian: create daily notes in advance with a template, and automatically import Google Calendar events as notes.",
 	"main": "main.js",
 	"type": "module",

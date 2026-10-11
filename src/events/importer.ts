@@ -8,6 +8,7 @@ import {
 	sanitizeFilename,
 } from "../util/template";
 import { runTemplaterIfAvailable } from "../util/templater";
+import { PersonNote, buildPeopleIndex, selectAttendees } from "../util/attendees";
 import {
 	FM_EVENT_ID,
 	FM_LEGACY_EVENT_DATE,
@@ -199,6 +200,16 @@ export class EventImporter {
 		const ctx = {
 			event,
 			calendarName: calendar.name,
+			attendees: selectAttendees(
+				event.attendees,
+				{
+					filter: settings.attendeeFilter,
+					format: settings.attendeeFormat,
+					exclude: settings.attendeeExclude,
+					linkUnmatched: settings.linkUnmatchedAttendees,
+				},
+				event.attendees.length > 0 ? this.peopleIndex(joinPath(folder, "event.md")) : null
+			),
 			dailyNoteLink: dailyNoteLink(
 				dailyNoteConfig(this.app, settings),
 				moment(event.start)
@@ -230,6 +241,34 @@ export class EventImporter {
 			}
 		}
 		return file;
+	}
+
+	/** Person notes in the People folder (or the whole vault), for linking guests. */
+	private peopleIndex(sourcePath: string) {
+		const { vault, metadataCache } = this.app;
+		const folder = this.plugin.settings.peopleFolder.trim().replace(/^\/+|\/+$/g, "");
+		const notes: PersonNote[] = [];
+		for (const file of vault.getMarkdownFiles()) {
+			if (folder && !file.path.startsWith(`${folder}/`)) continue;
+			const fm = metadataCache.getFileCache(file)?.frontmatter ?? {};
+			const list = (v: unknown): string[] =>
+				Array.isArray(v)
+					? v.filter((x): x is string => typeof x === "string")
+					: typeof v === "string"
+						? [v]
+						: [];
+			const emails: string[] = [];
+			for (const [key, value] of Object.entries(fm)) {
+				if (/^e-?mails?$/i.test(key)) emails.push(...list(value));
+			}
+			notes.push({
+				linktext: metadataCache.fileToLinktext(file, sourcePath, true),
+				basename: file.basename,
+				aliases: [...list(fm.aliases), ...list(fm.alias)],
+				emails: emails.map((e) => e.replace(/^mailto:/i, "").trim()),
+			});
+		}
+		return buildPeopleIndex(notes);
 	}
 
 	private async noteHasId(file: TFile, id: string): Promise<boolean> {

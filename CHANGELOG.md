@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3] - 2026-10-11
+
+- New setting "Hide event_id property" (on by default) hides `event_id` in the properties panel. The property stays in the note.
+- Attendees: event notes now list the guests who accepted the invite (setting "Attendees": accepted, accepted or maybe, everyone who didn't decline, or everyone). Meeting rooms are left out, and you can leave out people such as yourself.
+- Guests are linked to your person notes: a note in the People folder (setting) whose email property, name or alias matches the guest. Guests without a note are plain text, or links if you turn on "Link guests without a note".
+- New template variable `{{attendees_property}}` for a list property, e.g. `Attendees: {{attendees_property}}`. The built-in template now uses it.
+
 ## [1.0.2] - 2026-10-11
 
 - "Import now" explains why no notes were created: it now says when events were skipped because their notes were deleted earlier (and how to get them back), or when there are no events in the import window.

@@ -1,4 +1,5 @@
 import { CalendarSource } from "./types";
+import { AttendeeFilter, AttendeeFormat } from "./util/attendees";
 
 export type WeekStart = "locale" | "sunday" | "monday";
 
@@ -25,6 +26,16 @@ export interface BetterCalendarsSettings {
 	eventFolder: string;
 	eventTemplate: string;
 	eventTitlePattern: string;
+	attendeeFilter: AttendeeFilter;
+	attendeeFormat: AttendeeFormat;
+	/** Names/emails never listed as attendees (e.g. your own). */
+	attendeeExclude: string;
+	/** Folder with person notes to link guests to; empty searches the whole vault. */
+	peopleFolder: string;
+	/** Link guests without a person note as [[Name]]. */
+	linkUnmatchedAttendees: boolean;
+	/** Hide the event_id property in the Properties panel. */
+	hideEventId: boolean;
 	/** Frontmatter property holding the event's date; kept up to date when an event moves. */
 	eventDateProperty: string;
 	runTemplater: boolean;
@@ -52,6 +63,12 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	eventTemplate: "",
 	eventTitlePattern: "{{date}} {{title}}",
 	eventDateProperty: "Date",
+	attendeeFilter: "accepted",
+	attendeeFormat: "name",
+	attendeeExclude: "",
+	peopleFolder: "People",
+	linkUnmatchedAttendees: false,
+	hideEventId: true,
 	runTemplater: true,
 	imported: {},
 };

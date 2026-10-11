@@ -32,6 +32,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		this.applyHideEventId();
 
 		this.manager = new CalendarManager(
 			() => this.settings.calendars,
@@ -87,6 +88,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 	}
 
 	onunload(): void {
+		document.body.removeClass("bc-hide-event-id");
 		if (this.startupTimer !== null) window.clearTimeout(this.startupTimer);
 		if (this.refreshTimer !== null) window.clearInterval(this.refreshTimer);
 	}
@@ -105,6 +107,10 @@ export default class BetterCalendarsPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+	}
+
+	applyHideEventId(): void {
+		document.body.toggleClass("bc-hide-event-id", this.settings.hideEventId);
 	}
 
 	importsOnThisDevice(): boolean {

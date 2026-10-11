@@ -1,5 +1,5 @@
 import ICAL from "ical.js";
-import { CalendarSource, CalEvent } from "../types";
+import { Attendee, AttendeeStatus, CalendarSource, CalEvent } from "../types";
 
 const MEETING_URL_PATTERNS: RegExp[] = [
 	/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s"'<>]+/i,
@@ -312,15 +312,27 @@ function buildMeeting(
 	const description = stripHTML((event.description ?? "").toString());
 	const organizer = cleanContact(String(event.organizer ?? ""));
 
-	const attendees: string[] = [];
+	const attendees: Attendee[] = [];
 	for (const prop of event.component.getAllProperties("attendee")) {
-		const cn = prop.getParameter("cn");
-		if (cn) {
-			attendees.push(cn);
-			continue;
-		}
+		// Google lists meeting rooms as attendees too.
+		const cutype = (prop.getParameter("cutype") ?? "").toUpperCase();
+		if (cutype === "ROOM" || cutype === "RESOURCE") continue;
 		const v = prop.getFirstValue();
-		if (typeof v === "string") attendees.push(cleanContact(v));
+		const email = typeof v === "string" ? cleanContact(v) : "";
+		const cn = (prop.getParameter("cn") ?? "").trim();
+		// Google puts the email address in CN when it has no name.
+		const name = cn && cn.toLowerCase() !== email.toLowerCase() ? cn : "";
+		if (!name && !email) continue;
+		const partstat = (prop.getParameter("partstat") ?? "").toLowerCase();
+		const status: AttendeeStatus =
+			partstat === "accepted" ||
+			partstat === "declined" ||
+			partstat === "tentative" ||
+			partstat === "needs-action" ||
+			partstat === "delegated"
+				? partstat
+				: "";
+		attendees.push({ name, email, status });
 	}
 
 	const teamsUrl = event.component.getFirstPropertyValue<string>(

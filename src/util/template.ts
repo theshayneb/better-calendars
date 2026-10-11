@@ -1,6 +1,7 @@
 import { moment } from "obsidian";
 import type { Moment, unitOfTime } from "moment";
 import { CalEvent } from "../types";
+import { AttendeeText } from "./attendees";
 
 /**
  * Daily note template variables, the same set the core Daily notes plugin
@@ -53,6 +54,8 @@ export function renderDailyTemplate(
 export interface EventTemplateContext {
 	event: CalEvent;
 	calendarName: string;
+	/** Guests to show, already filtered, matched to person notes and formatted. */
+	attendees: AttendeeText[];
 	/** Wikilink to the daily note of the event's day, e.g. "[[2026-10-12]]". */
 	dailyNoteLink: string;
 }
@@ -106,11 +109,14 @@ function eventVariable(
 		case "organizer":
 			return event.organizer;
 		case "attendees":
-			return event.attendees.join(", ");
+			return ctx.attendees.map((a) => a.text).join(", ");
 		case "attendees_list":
-			return event.attendees.map((a) => `- ${a}`).join("\n");
+			return ctx.attendees.map((a) => `- ${a.link}`).join("\n");
 		case "attendees_wikilinks":
-			return event.attendees.map((a) => `[[${a}]]`).join(", ");
+			return ctx.attendees.map((a) => a.link).join(", ");
+		case "attendees_property":
+			// A YAML list for a list property: ["[[Ann]]", "bob@x.com"]
+			return `[${ctx.attendees.map((a) => JSON.stringify(a.link)).join(", ")}]`;
 		case "calendar":
 			return ctx.calendarName;
 		case "daily_note":
@@ -136,13 +142,13 @@ export const DEFAULT_EVENT_TEMPLATE = `---
 Date: {{date}}
 time: {{time}}
 calendar: {{calendar}}
+Attendees: {{attendees_property}}
 ---
 # {{title}}
 
 - **When**: {{daily_note}} {{time}}
 - **Where**: {{location}}
 - **Link**: {{meeting_url}}
-- **Attendees**: {{attendees}}
 
 ## Description
 {{description}}

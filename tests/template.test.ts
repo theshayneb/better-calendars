@@ -3,6 +3,7 @@ import moment from "moment";
 import { renderDailyTemplate, renderEventTemplate, sanitizeFilename } from "../src/util/template";
 import { findIsoDate, withEventFrontmatter } from "../src/events/with-frontmatter";
 import { CalEvent } from "../src/types";
+import { buildPeopleIndex, selectAttendees } from "../src/util/attendees";
 
 describe("renderDailyTemplate", () => {
 	const date = moment("2026-12-24", "YYYY-MM-DD");
@@ -44,10 +45,17 @@ describe("renderEventTemplate", () => {
 		location: "Room 1",
 		description: "Agenda",
 		organizer: "a@b.c",
-		attendees: ["Ann", "Bob"],
+		attendees: [
+			{ name: "Ann", email: "ann@x.com", status: "accepted" },
+			{ name: "Bob", email: "bob@x.com", status: "accepted" },
+		],
 		meetingUrl: "https://meet.google.com/xyz",
 	};
-	const ctx = { event, calendarName: "Work", dailyNoteLink: "[[2026-10-12]]" };
+	const ctx = { event, calendarName: "Work", attendees: [
+			{ text: "Ann", link: "[[Ann]]" },
+			{ text: "bob@x.com", link: "bob@x.com" },
+		],
+		dailyNoteLink: "[[2026-10-12]]" };
 
 	it("fills the variables", () => {
 		expect(
@@ -55,7 +63,14 @@ describe("renderEventTemplate", () => {
 				"{{date}} {{title}} {{start}}-{{end}} {{duration}} {{calendar}} {{daily_note}} {{attendees_wikilinks}} {{start:h:mm A}}",
 				ctx
 			)
-		).toBe("2026-10-12 Team sync 09:30-10:15 45 Work [[2026-10-12]] [[Ann]], [[Bob]] 9:30 AM");
+		).toBe("2026-10-12 Team sync 09:30-10:15 45 Work [[2026-10-12]] [[Ann]], bob@x.com 9:30 AM");
+	});
+
+	it("writes attendees as a list property", () => {
+		expect(renderEventTemplate("Attendees: {{attendees_property}}", ctx)).toBe(
+			'Attendees: ["[[Ann]]", "bob@x.com"]'
+		);
+		expect(renderEventTemplate("{{attendees_property}}", { ...ctx, attendees: [] })).toBe("[]");
 	});
 
 	it("leaves unknown variables alone (e.g. for other plugins)", () => {
@@ -100,5 +115,47 @@ describe("findIsoDate", () => {
 		expect(findIsoDate("2026-10-12")).toBe("2026-10-12");
 		expect(findIsoDate("[[2026-10-12]]")).toBe("2026-10-12");
 		expect(findIsoDate(undefined)).toBeNull();
+	});
+});
+
+describe("selectAttendees", () => {
+	const list = [
+		{ name: "Ann Lee", email: "ann@x.com", status: "accepted" as const },
+		{ name: "", email: "bob@x.com", status: "accepted" as const },
+		{ name: "Cat", email: "cat@x.com", status: "tentative" as const },
+		{ name: "Dan", email: "dan@x.com", status: "declined" as const },
+		{ name: "Me", email: "me@x.com", status: "needs-action" as const },
+	];
+	const opts = { filter: "accepted" as const, format: "name" as const, exclude: "", linkUnmatched: false };
+
+	it("keeps accepted guests as plain text without person notes", () => {
+		expect(selectAttendees(list, opts, null)).toEqual([
+			{ text: "Ann Lee", link: "Ann Lee" },
+			{ text: "bob@x.com", link: "bob@x.com" },
+		]);
+	});
+
+	it("links guests to person notes by email, name or alias", () => {
+		const people = buildPeopleIndex([
+			{ linktext: "Ann", basename: "Ann", aliases: ["Ann Lee"], emails: [] },
+			{ linktext: "People/Robert", basename: "Robert", aliases: [], emails: ["BOB@x.com"] },
+			{ linktext: "Cat", basename: "Cat", aliases: [], emails: [] },
+		]);
+		expect(selectAttendees(list, { ...opts, filter: "accepted-maybe" }, people)).toEqual([
+			{ text: "Ann", link: "[[Ann]]" },
+			{ text: "Robert", link: "[[People/Robert]]" },
+			{ text: "Cat", link: "[[Cat]]" },
+		]);
+	});
+
+	it("filters by reply, leaves out excluded people, can link unmatched guests", () => {
+		expect(
+			selectAttendees(
+				list,
+				{ ...opts, filter: "not-declined", format: "email", exclude: "ME@x.com, Cat", linkUnmatched: true },
+				null
+			).map((a) => a.link)
+		).toEqual(["[[ann@x.com]]", "[[bob@x.com]]"]);
+		expect(selectAttendees(list, { ...opts, filter: "all" }, null)).toHaveLength(5);
 	});
 });

@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting, moment } from "obsidian";
 import type BetterCalendarsPlugin from "./main";
 import { WeekStart } from "./settings";
+import { AttendeeFilter, AttendeeFormat } from "./util/attendees";
 import { CalendarSource } from "./types";
 import { CalendarEditModal, ConfirmModal } from "./ui/modals";
 import { FileSuggest, FolderSuggest } from "./ui/suggest";
@@ -149,7 +150,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			});
 		tpl.descEl.appendText("Template file for event notes. Variables: ");
 		tpl.descEl.createEl("code", {
-			text: "{{title}} {{date}} {{start}} {{end}} {{time}} {{duration}} {{location}} {{meeting_url}} {{description}} {{organizer}} {{attendees}} {{attendees_list}} {{attendees_wikilinks}} {{calendar}} {{daily_note}}",
+			text: "{{title}} {{date}} {{start}} {{end}} {{time}} {{duration}} {{location}} {{meeting_url}} {{description}} {{organizer}} {{attendees}} {{attendees_list}} {{attendees_wikilinks}} {{attendees_property}} {{calendar}} {{daily_note}}",
 		});
 		tpl.descEl.appendText(". Dates take a format, e.g. {{start:h:mm A}}.");
 		new Setting(containerEl)
@@ -170,6 +171,79 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					.setValue(settings.eventDateProperty)
 					.onChange(async (v) => {
 						settings.eventDateProperty = v.trim();
+						await save();
+					})
+			);
+		new Setting(containerEl)
+			.setName("Hide event_id property")
+			.setDesc("Hide the event_id property in the properties panel. It stays in the note, because that's how event notes are recognized.")
+			.addToggle((t) =>
+				t.setValue(settings.hideEventId).onChange(async (v) => {
+					settings.hideEventId = v;
+					this.plugin.applyHideEventId();
+					await save();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Attendees")
+			.setDesc("Which guests go into new event notes, by their reply to the invite.")
+			.addDropdown((d) =>
+				d
+					.addOption("accepted", "Accepted")
+					.addOption("accepted-maybe", "Accepted or maybe")
+					.addOption("not-declined", "Everyone who didn't decline")
+					.addOption("all", "Everyone invited")
+					.setValue(settings.attendeeFilter)
+					.onChange(async (v) => {
+						settings.attendeeFilter = v as AttendeeFilter;
+						await save();
+					})
+			);
+		new Setting(containerEl)
+			.setName("Show guests without a note as")
+			.addDropdown((d) =>
+				d
+					.addOption("name", "Display name (email if there is none)")
+					.addOption("email", "Email address")
+					.setValue(settings.attendeeFormat)
+					.onChange(async (v) => {
+						settings.attendeeFormat = v as AttendeeFormat;
+						await save();
+					})
+			);
+		new Setting(containerEl)
+			.setName("People folder")
+			.setDesc("Guests are linked to a note in this folder when its name, one of its aliases, or its email property matches. Empty searches the whole vault.")
+			.addText((t) => {
+				t.setPlaceholder("People")
+					.setValue(settings.peopleFolder)
+					.onChange(async (v) => {
+						settings.peopleFolder = v.trim();
+						await save();
+					});
+				new FolderSuggest(this.app, t.inputEl, (v) => {
+					settings.peopleFolder = v;
+					void save();
+				});
+			});
+		new Setting(containerEl)
+			.setName("Link guests without a note")
+			.setDesc("Write guests that have no person note as links too, so you can create their note later. When off, they are plain text.")
+			.addToggle((t) =>
+				t.setValue(settings.linkUnmatchedAttendees).onChange(async (v) => {
+					settings.linkUnmatchedAttendees = v;
+					await save();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Leave out attendees")
+			.setDesc("Names or email addresses to never list, separated by commas. For example your own.")
+			.addText((t) =>
+				t
+					.setPlaceholder("me@gmail.com")
+					.setValue(settings.attendeeExclude)
+					.onChange(async (v) => {
+						settings.attendeeExclude = v;
 						await save();
 					})
 			);
