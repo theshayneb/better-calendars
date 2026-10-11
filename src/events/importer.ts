@@ -4,6 +4,7 @@ import { CalEvent, CalendarSource } from "../types";
 import { dailyNoteConfig, dailyNoteLink } from "../daily/daily-notes";
 import {
 	DEFAULT_EVENT_TEMPLATE,
+	EventTemplateContext,
 	eventEndDate,
 	renderEventTemplate,
 	sanitizeFilename,
@@ -13,6 +14,7 @@ import { PersonNote, buildPeopleIndex, selectAttendees } from "../util/attendees
 import {
 	FM_EVENT_ID,
 	FM_LEGACY_EVENT_DATE,
+	fillEmptyProperties,
 	findIsoDate,
 	withEventFrontmatter,
 } from "./with-frontmatter";
@@ -198,7 +200,7 @@ export class EventImporter {
 			}
 		}
 
-		const ctx = {
+		const ctx: EventTemplateContext = {
 			event,
 			calendarName: calendar.name,
 			attendees: selectAttendees(
@@ -226,14 +228,56 @@ export class EventImporter {
 		if (existing && (await this.noteHasId(existing, event.id))) return existing;
 		path = uniquePath(this.app, path);
 
+		let rendered = renderEventTemplate(template, ctx);
+		if (settings.fillEmptyProperties) {
+			rendered = fillEmptyProperties(rendered, this.propertyValues(ctx));
+		}
 		const body = withEventFrontmatter(
-			renderEventTemplate(template, ctx),
+			rendered,
 			event.id,
 			settings.eventDateProperty.trim(),
 			moment(event.start).format("YYYY-MM-DD")
 		);
 		if (folder) await ensureFolder(this.app, folder);
 		return createNote(this.app, path, body, settings.runTemplater);
+	}
+
+	/** Values for empty template properties, by lower-case property name. */
+	private propertyValues(ctx: EventTemplateContext): Map<string, string> {
+		const settings = this.plugin.settings;
+		const e = ctx.event;
+		const values = new Map<string, string>();
+		const set = (names: string[], value: string) => {
+			if (!value) return;
+			for (const n of names) {
+				const key = n.trim().toLowerCase();
+				if (key && !values.has(key)) values.set(key, value);
+			}
+		};
+		const text = (s: string) => (s ? JSON.stringify(s) : "");
+		const time = (d: Date) => (e.allDay ? "" : text(moment(d).format("HH:mm")));
+		set([settings.eventDateProperty, "date"], moment(e.start).format("YYYY-MM-DD"));
+		set([settings.eventEndDateProperty, "end_date", "end date"], eventEndDate(e));
+		if (ctx.attendees.length > 0) {
+			set(
+				[settings.eventPeopleProperty, "people", "attendees", "participants"],
+				`[${ctx.attendees.map((a) => JSON.stringify(a.link)).join(", ")}]`
+			);
+		}
+		set(["title"], text(e.title));
+		set(["start", "start_time", "start time"], time(e.start));
+		set(["end", "end_time", "end time"], time(e.end));
+		set(
+			["time"],
+			e.allDay ? text("All day") : text(`${moment(e.start).format("HH:mm")}–${moment(e.end).format("HH:mm")}`)
+		);
+		set(["location", "where", "place"], text(e.location));
+		set(["link", "url", "meeting_url", "meeting link", "meeting_link"], text(e.meetingUrl));
+		set(["organizer", "organiser"], text(e.organizer));
+		set(["calendar"], text(ctx.calendarName));
+		set(["description"], text(e.description));
+		set(["daily_note", "daily note", "day"], text(ctx.dailyNoteLink));
+		return values;
 	}
 
 	/** Person notes in the People folder (or the whole vault), for linking guests. */

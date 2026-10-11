@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import moment from "moment";
 import { renderDailyTemplate, renderEventTemplate, sanitizeFilename } from "../src/util/template";
-import { findIsoDate, withEventFrontmatter } from "../src/events/with-frontmatter";
+import { fillEmptyProperties, findIsoDate, withEventFrontmatter } from "../src/events/with-frontmatter";
 import { CalEvent } from "../src/types";
 import { buildPeopleIndex, selectAttendees } from "../src/util/attendees";
 
@@ -176,5 +176,30 @@ describe("selectAttendees", () => {
 			).map((a) => a.link)
 		).toEqual(["[[ann@x.com]]", "[[bob@x.com]]"]);
 		expect(selectAttendees(list, { ...opts, filter: "all" }, null)).toHaveLength(5);
+	});
+});
+
+describe("fillEmptyProperties", () => {
+	const values = new Map([
+		["date", "2026-10-12"],
+		["end_date", "2026-10-13"],
+		["people", '["[[Ann]]"]'],
+		["location", '"Cafe: corner"'],
+	]);
+
+	it("fills empty properties by name, case-insensitively", () => {
+		const body = "---\nDate:\nEnd_Date: \nPeople: []\nLocation: null\nTags:\n---\n# Body\nDate:\n";
+		expect(fillEmptyProperties(body, values)).toBe(
+			'---\nDate: 2026-10-12\nEnd_Date: 2026-10-13\nPeople: ["[[Ann]]"]\nLocation: "Cafe: corner"\nTags:\n---\n# Body\nDate:\n'
+		);
+	});
+
+	it("leaves values, variables and list items alone", () => {
+		const body = "---\nDate: 2020-01-01\nPeople:\n  - \"[[Bob]]\"\nLocation: here\n---\n";
+		expect(fillEmptyProperties(body, values)).toBe(body);
+	});
+
+	it("does nothing without frontmatter", () => {
+		expect(fillEmptyProperties("Date:\n", values)).toBe("Date:\n");
 	});
 });

@@ -40,6 +40,10 @@ export interface BetterCalendarsSettings {
 	eventDateProperty: string;
 	/** Frontmatter property holding the event's end date; updated (never added) when an event moves. */
 	eventEndDateProperty: string;
+	/** Frontmatter property for the guests list. */
+	eventPeopleProperty: string;
+	/** Fill template properties left empty (Date:, People:, Location:, ...) by name. */
+	fillEmptyProperties: boolean;
 	runTemplater: boolean;
 	/** Events that already got a note: event id -> event start (ms). Deleting such a note doesn't bring it back. */
 	imported: Record<string, number>;
@@ -66,6 +70,8 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	eventTitlePattern: "{{date}} {{title}}",
 	eventDateProperty: "Date",
 	eventEndDateProperty: "End_Date",
+	eventPeopleProperty: "People",
+	fillEmptyProperties: true,
 	attendeeFilter: "accepted",
 	attendeeFormat: "name",
 	attendeeExclude: "",

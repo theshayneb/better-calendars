@@ -29,6 +29,29 @@ export function withEventFrontmatter(
 	return `---\n${idLine}${dateLine}---\n${body}`;
 }
 
+/**
+ * Fill properties that the template left empty (`Location:` with nothing
+ * after it, or just [] / "" / null) from `values`, keyed by lower-case property name and already
+ * written as YAML. Properties with a value, or with list items below them,
+ * are left alone.
+ */
+export function fillEmptyProperties(body: string, values: Map<string, string>): string {
+	const open = /^---\r?\n/.exec(body);
+	if (!open) return body;
+	const rest = body.slice(open[0].length);
+	const close = /^---[ \t]*$/m.exec(rest);
+	if (!close) return body;
+	const lines = rest.slice(0, close.index).split("\n");
+	for (let i = 0; i < lines.length; i++) {
+		const m = /^([^\s#:][^:]*?)[ \t]*:[ \t]*(?:\[\]|""|''|null|~)?[ \t]*\r?$/.exec(lines[i] ?? "");
+		if (!m || !m[1]) continue;
+		if (/^\s+\S/.test(lines[i + 1] ?? "")) continue; // has list items or nested values
+		const value = values.get(m[1].trim().toLowerCase());
+		if (value) lines[i] = `${m[1]}: ${value}`;
+	}
+	return open[0] + lines.join("\n") + rest.slice(close.index);
+}
+
 /** The YYYY-MM-DD date inside a property value such as "2026-10-12" or "[[2026-10-12]]". */
 export function findIsoDate(value: unknown): string | null {
 	if (typeof value !== "string") return null;

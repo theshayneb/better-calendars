@@ -175,6 +175,27 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					})
 			);
 		new Setting(containerEl)
+			.setName("Fill empty properties")
+			.setDesc("Fill properties your template leaves empty, by name: the date, end date and people properties below, and title, start, end, time, location, link, organizer, calendar and description. Properties with a value or a variable are left as they are.")
+			.addToggle((t) =>
+				t.setValue(settings.fillEmptyProperties).onChange(async (v) => {
+					settings.fillEmptyProperties = v;
+					await save();
+				})
+			);
+		new Setting(containerEl)
+			.setName("People property")
+			.setDesc("Property that gets the guests list when it is empty in your template.")
+			.addText((t) =>
+				t
+					.setPlaceholder("People")
+					.setValue(settings.eventPeopleProperty)
+					.onChange(async (v) => {
+						settings.eventPeopleProperty = v.trim();
+						await save();
+					})
+			);
+		new Setting(containerEl)
 			.setName("End date property")
 			.setDesc("Property that holds the event's end date, e.g. End_Date: {{end_date}} in your template. It is updated when an event moves, but never added.")
 			.addText((t) =>
