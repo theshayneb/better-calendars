@@ -49,7 +49,7 @@ Event notes can list the guests of a meeting, read from the invite in Google Cal
 
 - **Who**: guests who accepted (default), accepted or said maybe, everyone who didn't decline, or everyone invited. Meeting rooms are never listed. "Leave out attendees" skips people such as yourself.
 - **Linked to your people notes**: a guest is linked to a note in your People folder when the note's `email` property, its name, or one of its `aliases` matches the guest's email or display name. Other guests are written as plain text (display name, or email if Google has no name), or as links if you turn on "Link guests without a note".
-- In a template, `Attendees: {{attendees_property}}` in the properties block gives a list property like `["[[Ann Lee]]", "bob@example.com"]`; `{{attendees_list}}` gives a bulleted list.
+- In a template, `People: {{attendees_property}}` in the properties block gives a list property like `["[[Ann Lee]]", "bob@example.com"]`; `{{attendees_list}}` gives a bulleted list.
 
 Event note templates (a file you choose in settings, or the built-in one) can use:
 

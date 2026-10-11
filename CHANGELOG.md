@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.4] - 2026-10-11
+
+- The built-in event template puts the guests in a `People` property instead of `Attendees`. In your own template, any property name works: `People: {{attendees_property}}`.
+
 ## [1.0.3] - 2026-10-11
 
 - New setting "Hide event_id property" (on by default) hides `event_id` in the properties panel. The property stays in the note.

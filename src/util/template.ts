@@ -142,7 +142,7 @@ export const DEFAULT_EVENT_TEMPLATE = `---
 Date: {{date}}
 time: {{time}}
 calendar: {{calendar}}
-Attendees: {{attendees_property}}
+People: {{attendees_property}}
 ---
 # {{title}}
 
