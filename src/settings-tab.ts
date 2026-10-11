@@ -184,6 +184,15 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				})
 			);
 		new Setting(containerEl)
+			.setName("Include times")
+			.setDesc("Write the start and end time into the date and end date properties of timed events, e.g. 2026-10-12T15:00 (an Obsidian date & time property). All-day events get just the date.")
+			.addToggle((t) =>
+				t.setValue(settings.includeTimes).onChange(async (v) => {
+					settings.includeTimes = v;
+					await save();
+				})
+			);
+		new Setting(containerEl)
 			.setName("People property")
 			.setDesc("Property that gets the guests list when it is empty in your template.")
 			.addText((t) =>

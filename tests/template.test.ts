@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import moment from "moment";
 import { renderDailyTemplate, renderEventTemplate, sanitizeFilename } from "../src/util/template";
-import { fillEmptyProperties, findIsoDate, withEventFrontmatter } from "../src/events/with-frontmatter";
+import {
+	fillEmptyProperties,
+	findIsoDate,
+	movedValue,
+	withEventFrontmatter,
+} from "../src/events/with-frontmatter";
 import { CalEvent } from "../src/types";
 import { buildPeopleIndex, selectAttendees } from "../src/util/attendees";
 
@@ -201,5 +206,26 @@ describe("fillEmptyProperties", () => {
 
 	it("does nothing without frontmatter", () => {
 		expect(fillEmptyProperties("Date:\n", values)).toBe("Date:\n");
+	});
+});
+
+describe("movedValue", () => {
+	it("updates date-times, dates and links, keeping their shape", () => {
+		expect(movedValue("2026-10-12T15:00", "2026-10-13", "2026-10-13T16:30")).toBe("2026-10-13T16:30");
+		expect(movedValue("2026-10-12", "2026-10-13", "2026-10-13T16:30")).toBe("2026-10-13");
+		expect(movedValue("[[2026-10-12]]", "2026-10-13", null)).toBe("[[2026-10-13]]");
+		expect(movedValue("2026-10-12T15:00", "2026-10-12", null)).toBe("2026-10-12");
+	});
+
+	it("notices a time change on the same day", () => {
+		expect(movedValue("2026-10-12T15:00", "2026-10-12", "2026-10-12T17:00")).toBe("2026-10-12T17:00");
+	});
+
+	it("returns null when nothing changed or there is no date", () => {
+		expect(movedValue("2026-10-12T15:00", "2026-10-12", "2026-10-12T15:00")).toBeNull();
+		expect(movedValue("2026-10-12T15:00:00", "2026-10-12", "2026-10-12T15:00")).toBeNull();
+		expect(movedValue("2026-10-12", "2026-10-12", "2026-10-12T15:00")).toBeNull();
+		expect(movedValue("soon", "2026-10-12", null)).toBeNull();
+		expect(movedValue(undefined, "2026-10-12", null)).toBeNull();
 	});
 });

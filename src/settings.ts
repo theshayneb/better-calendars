@@ -40,6 +40,8 @@ export interface BetterCalendarsSettings {
 	eventDateProperty: string;
 	/** Frontmatter property holding the event's end date; updated (never added) when an event moves. */
 	eventEndDateProperty: string;
+	/** Write date and time (2026-10-12T15:00) into the date properties of timed events. */
+	includeTimes: boolean;
 	/** Frontmatter property for the guests list. */
 	eventPeopleProperty: string;
 	/** Fill template properties left empty (Date:, People:, Location:, ...) by name. */
@@ -71,6 +73,7 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	eventDateProperty: "Date",
 	eventEndDateProperty: "End_Date",
 	eventPeopleProperty: "People",
+	includeTimes: true,
 	fillEmptyProperties: true,
 	attendeeFilter: "accepted",
 	attendeeFormat: "name",

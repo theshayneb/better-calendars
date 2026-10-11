@@ -16,6 +16,7 @@ import {
 	FM_LEGACY_EVENT_DATE,
 	fillEmptyProperties,
 	findIsoDate,
+	movedValue,
 	withEventFrontmatter,
 } from "./with-frontmatter";
 import {
@@ -236,10 +237,22 @@ export class EventImporter {
 			rendered,
 			event.id,
 			settings.eventDateProperty.trim(),
-			moment(event.start).format("YYYY-MM-DD")
+			this.dateValue(event, "start")
 		);
 		if (folder) await ensureFolder(this.app, folder);
 		return createNote(this.app, path, body, settings.runTemplater);
+	}
+
+	/** 2026-10-12T15:00 (timed events, if times are on) or 2026-10-12. The end date of all-day events is inclusive. */
+	private dateValue(e: CalEvent, which: "start" | "end"): string {
+		const dateTime = this.dateTimeOf(e, which);
+		if (dateTime) return dateTime;
+		return which === "start" ? moment(e.start).format("YYYY-MM-DD") : eventEndDate(e);
+	}
+
+	private dateTimeOf(e: CalEvent, which: "start" | "end"): string | null {
+		if (e.allDay || !this.plugin.settings.includeTimes) return null;
+		return moment(which === "start" ? e.start : e.end).format("YYYY-MM-DDTHH:mm");
 	}
 
 	/** Values for empty template properties, by lower-case property name. */
@@ -256,8 +269,8 @@ export class EventImporter {
 		};
 		const text = (s: string) => (s ? JSON.stringify(s) : "");
 		const time = (d: Date) => (e.allDay ? "" : text(moment(d).format("HH:mm")));
-		set([settings.eventDateProperty, "date"], moment(e.start).format("YYYY-MM-DD"));
-		set([settings.eventEndDateProperty, "end_date", "end date"], eventEndDate(e));
+		set([settings.eventDateProperty, "date"], this.dateValue(e, "start"));
+		set([settings.eventEndDateProperty, "end_date", "end date"], this.dateValue(e, "end"));
 		if (ctx.attendees.length > 0) {
 			set(
 				[settings.eventPeopleProperty, "people", "attendees", "participants"],
@@ -316,8 +329,8 @@ export class EventImporter {
 	}
 
 	/**
-	 * An event moved: update the date and end date properties, and the
-	 * file name if it contains the old date.
+	 * An event moved (other day or other time): update the date and end
+	 * date properties, and the file name if it contains the old date.
 	 */
 	private async followReschedule(note: TFile, event: CalEvent): Promise<void> {
 		const settings = this.plugin.settings;
@@ -325,31 +338,30 @@ export class EventImporter {
 		const endProp = settings.eventEndDateProperty.trim();
 		const fm = this.app.metadataCache.getFileCache(note)?.frontmatter;
 		if (!fm) return;
-		const current = prop ? findIsoDate(fm[prop]) : null;
-		const legacy = findIsoDate(fm[FM_LEGACY_EVENT_DATE]);
-		const oldDate = current ?? legacy;
 		const newDate = moment(event.start).format("YYYY-MM-DD");
-		const oldEnd = endProp ? findIsoDate(fm[endProp]) : null;
-		const newEnd = eventEndDate(event);
-		const dateMoved = Boolean(oldDate) && oldDate !== newDate;
-		const endMoved = Boolean(oldEnd) && oldEnd !== newEnd;
-		if (!dateMoved && !endMoved) return;
+		const legacy = findIsoDate(fm[FM_LEGACY_EVENT_DATE]);
+		const oldDate = (prop ? findIsoDate(fm[prop]) : null) ?? legacy;
+		const startValue = prop
+			? movedValue(fm[prop], newDate, this.dateTimeOf(event, "start"))
+			: null;
+		const endValue = endProp
+			? movedValue(fm[endProp], eventEndDate(event), this.dateTimeOf(event, "end"))
+			: null;
+		const legacyMoved = legacy !== null && legacy !== newDate;
+		if (startValue === null && endValue === null && !legacyMoved) return;
 
-		// Keep a value's shape, e.g. "[[2026-10-12]]".
-		const replaced = (value: unknown, from: string, to: string) =>
-			typeof value === "string" && value.includes(from)
-				? value.split(from).join(to)
-				: to;
 		await this.app.fileManager.processFrontMatter(
 			note,
 			(data: Record<string, unknown>) => {
-				if (dateMoved && oldDate) {
-					if (prop) data[prop] = replaced(data[prop], oldDate, newDate);
-					delete data[FM_LEGACY_EVENT_DATE];
+				if (startValue !== null) data[prop] = startValue;
+				else if (legacyMoved && prop && data[prop] === undefined) {
+					data[prop] = this.dateValue(event, "start");
 				}
-				if (endMoved && oldEnd) data[endProp] = replaced(data[endProp], oldEnd, newEnd);
+				if (endValue !== null) data[endProp] = endValue;
+				if (legacy !== null) delete data[FM_LEGACY_EVENT_DATE];
 			}
 		);
+		const dateMoved = oldDate !== null && oldDate !== newDate;
 		if (dateMoved && oldDate && note.basename.includes(oldDate)) {
 			const newName = note.basename.split(oldDate).join(newDate);
 			const parent = note.parent?.path ?? "";

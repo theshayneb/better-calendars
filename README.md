@@ -53,7 +53,7 @@ Event notes can list the guests of a meeting, read from the invite in Google Cal
 
 ### Properties are filled in by name
 
-You don't need variables for the usual properties: leave them empty in your template and Better Calendars fills them in. `Date`, `End_Date` and `People` (names configurable), plus `Title`, `Start`, `End`, `Time`, `Location`, `Link`, `Organizer`, `Calendar` and `Description`. For example:
+For timed events `Date` and `End_Date` get the date and time (`2026-10-14T15:00`), for all-day events just the date; turn off "Include times" for dates only. You don't need variables for the usual properties: leave them empty in your template and Better Calendars fills them in. `Date`, `End_Date` and `People` (names configurable), plus `Title`, `Start`, `End`, `Time`, `Location`, `Link`, `Organizer`, `Calendar` and `Description`. For example:
 
 ```
 ---

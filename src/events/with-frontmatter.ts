@@ -52,6 +52,30 @@ export function fillEmptyProperties(body: string, values: Map<string, string>): 
 	return open[0] + lines.join("\n") + rest.slice(close.index);
 }
 
+/** A date or date-time inside a property value: 2026-10-12 or 2026-10-12T15:00. */
+const STAMP_RE = /\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?/;
+
+/**
+ * The value a date property should get after its event moved, keeping the
+ * value's shape ("[[2026-10-12]]" stays a link; a date-time stays a
+ * date-time unless the event became all-day). `newDateTime` is null for
+ * all-day events. Returns null when the value is already right or holds no
+ * date.
+ */
+export function movedValue(
+	value: unknown,
+	newDate: string,
+	newDateTime: string | null
+): string | null {
+	if (typeof value !== "string") return null;
+	const m = STAMP_RE.exec(value);
+	if (!m) return null;
+	const hadTime = m[0].length > 10;
+	const target = hadTime && newDateTime ? newDateTime : newDate;
+	if (m[0].slice(0, 16).replace(" ", "T") === target) return null;
+	return value.slice(0, m.index) + target + value.slice(m.index + m[0].length);
+}
+
 /** The YYYY-MM-DD date inside a property value such as "2026-10-12" or "[[2026-10-12]]". */
 export function findIsoDate(value: unknown): string | null {
 	if (typeof value !== "string") return null;

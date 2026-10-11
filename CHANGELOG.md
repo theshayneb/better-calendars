@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.10] - 2026-10-11
+
+- `Date` and `End_Date` now include the time for timed events, e.g. `2026-10-14T15:00` (an Obsidian date & time property). All-day events still get just the date. Setting "Include times" (on by default).
+- When an event's time changes, even on the same day, its note's `Date` and `End_Date` are updated.
+
 ## [1.0.9] - 2026-10-11
 
 - Event notes: properties your template leaves empty are now filled in by name (setting "Fill empty properties", on by default). `Date`, `End_Date` and `People` (names set in the settings), plus `Title`, `Start`, `End`, `Time`, `Location`, `Link`, `Organizer`, `Calendar` and `Description`. A template with just `Date:`, `End_Date:`, `People:` no longer gives empty properties. Properties with a value or a `{{variable}}` are left as they are.
