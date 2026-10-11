@@ -2,7 +2,7 @@ import { App, Notice, TFile, moment } from "obsidian";
 import type { Moment } from "moment";
 import { BetterCalendarsSettings } from "../settings";
 import { renderDailyTemplate } from "../util/template";
-import { runTemplaterIfAvailable } from "../util/templater";
+import { createNote } from "../util/templater";
 import {
 	ensureParentFolder,
 	joinPath,
@@ -150,19 +150,12 @@ export async function createDailyNote(
 	await ensureParentFolder(app, path);
 	let file: TFile;
 	try {
-		file = await app.vault.create(path, body);
+		file = await createNote(app, path, body, settings.runTemplater);
 	} catch (e) {
 		// Lost a race (sync or a parallel call): use the note that won.
 		const raced = getDailyNote(app, config, date);
 		if (raced) return raced;
 		throw e;
-	}
-	if (settings.runTemplater) {
-		try {
-			await runTemplaterIfAvailable(app, file);
-		} catch (e) {
-			console.warn("[Better Calendars] Templater failed on", path, e);
-		}
 	}
 	return file;
 }

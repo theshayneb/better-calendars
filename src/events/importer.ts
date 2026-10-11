@@ -8,7 +8,7 @@ import {
 	renderEventTemplate,
 	sanitizeFilename,
 } from "../util/template";
-import { runTemplaterIfAvailable } from "../util/templater";
+import { createNote } from "../util/templater";
 import { PersonNote, buildPeopleIndex, selectAttendees } from "../util/attendees";
 import {
 	FM_EVENT_ID,
@@ -233,15 +233,7 @@ export class EventImporter {
 			moment(event.start).format("YYYY-MM-DD")
 		);
 		if (folder) await ensureFolder(this.app, folder);
-		const file = await this.app.vault.create(path, body);
-		if (settings.runTemplater) {
-			try {
-				await runTemplaterIfAvailable(this.app, file);
-			} catch (e) {
-				console.warn("[Better Calendars] Templater failed on", path, e);
-			}
-		}
-		return file;
+		return createNote(this.app, path, body, settings.runTemplater);
 	}
 
 	/** Person notes in the People folder (or the whole vault), for linking guests. */

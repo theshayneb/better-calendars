@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.6] - 2026-10-11
+
+- Templater now runs on new daily and event notes only after Obsidian has read the note's properties, so templates that use `tp.frontmatter` (for example a meta template that picks a layout from the `Date` property) see the note's own date instead of nothing. Templater's own "trigger on new file creation" no longer processes these notes early.
+
 ## [1.0.5] - 2026-10-11
 
 - New template variable `{{end_date}}`: the day the event ends (`YYYY-MM-DD`, or any format like `{{end_date:D MMM}}`). For all-day events it gives the last day of the event, not the day after.
