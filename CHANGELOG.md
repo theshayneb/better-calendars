@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.7] - 2026-10-11
+
+- Fixed daily notes getting another day's template when several notes are created in a row (create in advance, auto-create, event import). Templater's own "trigger on new file creation" could run on the previous note while Better Calendars ran Templater on the next one; Templater shares one `tp` state, so `tp.file.title` could belong to the wrong note. New notes are now handled one at a time, and Templater's trigger stays off them for two seconds after they're done.
+
 ## [1.0.6] - 2026-10-11
 
 - Templater now runs on new daily and event notes only after Obsidian has read the note's properties, so templates that use `tp.frontmatter` (for example a meta template that picks a layout from the `Date` property) see the note's own date instead of nothing. Templater's own "trigger on new file creation" no longer processes these notes early.

@@ -35,14 +35,35 @@ function waitForMetadata(app: App, file: TFile, timeoutMs = 3000): Promise<void>
 }
 
 /**
- * Create a note and, if asked and Templater is installed, run Templater on
- * it. Templater only runs once Obsidian has read the new note's properties,
- * so templates that use tp.frontmatter (e.g. a Date property on a note
- * created in advance) see the note's own values. Until then Templater's own
- * "trigger on new file creation" is kept off this note, so it isn't
- * processed early with empty properties.
+ * How long a new note stays hidden from Templater's own "trigger on new
+ * file creation" after we ran Templater on it. That trigger fires about
+ * 300 ms after the note is created.
  */
-export async function createNote(
+const TRIGGER_GUARD_MS = 2000;
+
+/** Templater keeps one shared `tp` state, so runs must not overlap. */
+let queue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Create a note and, if asked and Templater is installed, run Templater on
+ * it. Notes are handled one at a time, and Templater only runs once
+ * Obsidian has read the new note's properties (so tp.frontmatter works).
+ * Templater's own new-file trigger is kept off the note until well after
+ * that: if it ran on this note while we process the next one, the shared
+ * tp state (tp.file.title, ...) would belong to the wrong note.
+ */
+export function createNote(
+	app: App,
+	path: string,
+	body: string,
+	runTemplater: boolean
+): Promise<TFile> {
+	const run = queue.then(() => createNow(app, path, body, runTemplater));
+	queue = run.catch(() => undefined);
+	return run;
+}
+
+async function createNow(
 	app: App,
 	path: string,
 	body: string,
@@ -63,6 +84,8 @@ export async function createNote(
 		}
 		return file;
 	} finally {
-		pending?.delete(path);
+		// Templater removes the path when its run ends; put it back for a while.
+		pending?.add(path);
+		window.setTimeout(() => pending?.delete(path), TRIGGER_GUARD_MS);
 	}
 }
