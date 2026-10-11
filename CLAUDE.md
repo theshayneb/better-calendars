@@ -24,6 +24,7 @@ npm run build
 
 - Event notes are recognized by `event_id` in their frontmatter: the ICS UID for one-off events, `UID::YYYY-MM-DD` (original slot) for occurrences of recurring events.
 - The event's date lives in the owner's own property (`settings.eventDateProperty`, default `Date`); 1.0.0 notes may still have `event_date`, which is read as a fallback and removed when the event moves.
+- `{{end_date}}` is inclusive (all-day DTEND is exclusive); `settings.eventEndDateProperty` (default `End_Date`) is updated on reschedule but never added.
 - Daily note settings fall back to Periodic Notes (daily enabled), then the core Daily notes plugin.
 - Attendees: parsed with their PARTSTAT (rooms/resources skipped), filtered and matched to person notes (email property, then name, then alias) in `src/util/attendees.ts`.
 - The `event_id` property is hidden with the body class `bc-hide-event-id` (setting `hideEventId`).

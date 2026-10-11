@@ -92,6 +92,8 @@ function eventVariable(
 			return event.allDay && !fmt
 				? "all day"
 				: moment(event.end).format(fmt || "HH:mm");
+		case "end_date":
+			return eventEndDate(event, fmt);
 		case "time":
 			return event.allDay
 				? "All day"
@@ -127,6 +129,17 @@ function eventVariable(
 			// Unknown names are left alone, so other plugins' {{...}} survive.
 			return null;
 	}
+}
+
+/**
+ * The day the event ends. ICS end dates of all-day events are exclusive
+ * (a one-day event on the 12th ends on the 13th), so step back a day.
+ */
+export function eventEndDate(event: CalEvent, fmt?: string): string {
+	const end = moment(event.end);
+	if (event.allDay) end.subtract(1, "day");
+	if (end.isBefore(moment(event.start), "day")) return moment(event.start).format(fmt || "YYYY-MM-DD");
+	return end.format(fmt || "YYYY-MM-DD");
 }
 
 export function sanitizeFilename(name: string): string {

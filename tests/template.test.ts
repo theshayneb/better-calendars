@@ -66,6 +66,25 @@ describe("renderEventTemplate", () => {
 		).toBe("2026-10-12 Team sync 09:30-10:15 45 Work [[2026-10-12]] [[Ann]], bob@x.com 9:30 AM");
 	});
 
+	it("gives the inclusive end date, also for all-day events", () => {
+		expect(renderEventTemplate("{{end_date}}", ctx)).toBe("2026-10-12");
+		const allDay = {
+			...event,
+			allDay: true,
+			start: new Date(2026, 9, 12),
+			end: new Date(2026, 9, 15),
+		};
+		expect(renderEventTemplate("{{end_date}} {{end_date:D MMM}}", { ...ctx, event: allDay })).toBe(
+			"2026-10-14 14 Oct"
+		);
+		expect(
+			renderEventTemplate("{{end_date}}", {
+				...ctx,
+				event: { ...allDay, end: new Date(2026, 9, 13) },
+			})
+		).toBe("2026-10-12");
+	});
+
 	it("writes attendees as a list property", () => {
 		expect(renderEventTemplate("Attendees: {{attendees_property}}", ctx)).toBe(
 			'Attendees: ["[[Ann]]", "bob@x.com"]'

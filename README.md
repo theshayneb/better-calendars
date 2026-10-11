@@ -39,7 +39,7 @@ If Templater is installed, its commands run on new notes too (setting **Run Temp
 From then on, Better Calendars checks your calendars every 30 minutes (configurable) and creates a note for every event in the next 7 days (configurable) that doesn't have one yet. Notes go to the `Events` folder by default, named `{{date}} {{title}}`.
 
 - Each event gets exactly one note. If you delete it, it is not created again ("Forget import history" resets that).
-- If an event moves to another day, its note's date property (`Date` by default) and file name follow.
+- If an event moves to another day, its note's date property (`Date` by default), end date property (`End_Date` by default, e.g. `End_Date: {{end_date}}` in your template) and file name follow.
 - Turn off **Import automatically** for a calendar to only create notes when you click an event in the calendar view.
 - If you use several devices with Obsidian Sync, consider turning off **Import on this device** on all but one, so two devices don't create the same note at the same moment.
 
@@ -53,7 +53,7 @@ Event notes can list the guests of a meeting, read from the invite in Google Cal
 
 Event note templates (a file you choose in settings, or the built-in one) can use:
 
-`{{title}}` `{{date}}` `{{start}}` `{{end}}` `{{time}}` `{{duration}}` `{{location}}` `{{meeting_url}}` `{{description}}` `{{organizer}}` `{{attendees}}` `{{attendees_list}}` `{{attendees_wikilinks}}` `{{attendees_property}}` `{{calendar}}` `{{daily_note}}` (a link to that day's daily note) `{{uid}}`. Date variables take a format: `{{start:h:mm A}}`.
+`{{title}}` `{{date}}` `{{start}}` `{{end}}` `{{end_date}}` (the last day of the event) `{{time}}` `{{duration}}` `{{location}}` `{{meeting_url}}` `{{description}}` `{{organizer}}` `{{attendees}}` `{{attendees_list}}` `{{attendees_wikilinks}}` `{{attendees_property}}` `{{calendar}}` `{{daily_note}}` (a link to that day's daily note) `{{uid}}`. Date variables take a format: `{{start:h:mm A}}`.
 
 Better Calendars adds an `event_id` property to each event note; that's how it recognizes the note later. It is hidden in the properties panel unless you turn off "Hide event_id property". It also sets the date property (`Date` by default) if your template doesn't.
 

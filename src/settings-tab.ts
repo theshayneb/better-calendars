@@ -150,7 +150,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			});
 		tpl.descEl.appendText("Template file for event notes. Variables: ");
 		tpl.descEl.createEl("code", {
-			text: "{{title}} {{date}} {{start}} {{end}} {{time}} {{duration}} {{location}} {{meeting_url}} {{description}} {{organizer}} {{attendees}} {{attendees_list}} {{attendees_wikilinks}} {{attendees_property}} {{calendar}} {{daily_note}}",
+			text: "{{title}} {{date}} {{start}} {{end}} {{end_date}} {{time}} {{duration}} {{location}} {{meeting_url}} {{description}} {{organizer}} {{attendees}} {{attendees_list}} {{attendees_wikilinks}} {{attendees_property}} {{calendar}} {{daily_note}}",
 		});
 		tpl.descEl.appendText(". Dates take a format, e.g. {{start:h:mm A}}.");
 		new Setting(containerEl)
@@ -171,6 +171,18 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					.setValue(settings.eventDateProperty)
 					.onChange(async (v) => {
 						settings.eventDateProperty = v.trim();
+						await save();
+					})
+			);
+		new Setting(containerEl)
+			.setName("End date property")
+			.setDesc("Property that holds the event's end date, e.g. End_Date: {{end_date}} in your template. It is updated when an event moves, but never added.")
+			.addText((t) =>
+				t
+					.setPlaceholder("End_Date")
+					.setValue(settings.eventEndDateProperty)
+					.onChange(async (v) => {
+						settings.eventEndDateProperty = v.trim();
 						await save();
 					})
 			);

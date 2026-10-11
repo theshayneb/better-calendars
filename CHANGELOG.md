@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.5] - 2026-10-11
+
+- New template variable `{{end_date}}`: the day the event ends (`YYYY-MM-DD`, or any format like `{{end_date:D MMM}}`). For all-day events it gives the last day of the event, not the day after.
+- New setting "End date property" (default `End_Date`): when an event moves, this property is updated along with the date property. It is never added to notes that don't have it.
+
 ## [1.0.4] - 2026-10-11
 
 - The built-in event template puts the guests in a `People` property instead of `Attendees`. In your own template, any property name works: `People: {{attendees_property}}`.
