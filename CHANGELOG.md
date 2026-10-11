@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.2] - 2026-10-11
+
+- "Import now" explains why no notes were created: it now says when events were skipped because their notes were deleted earlier (and how to get them back), or when there are no events in the import window.
+
 ## [1.0.1] - 2026-10-11
 
 - Daily notes now also use the template, folder and format from the Periodic Notes plugin (when its daily notes are on), and from the core Daily notes plugin even when it is turned off. Before, new daily notes could come out empty in those setups.

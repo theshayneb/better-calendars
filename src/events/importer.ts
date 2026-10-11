@@ -53,8 +53,17 @@ export class EventNoteIndex {
 	}
 }
 
+export interface ImportResult {
+	/** Notes created in this run. */
+	created: number;
+	/** Events in the window whose note was created before and has since been deleted. */
+	skipped: number;
+	/** Events in the import window, from calendars that import automatically. */
+	inWindow: number;
+}
+
 export class EventImporter {
-	private importing: Promise<number> | null = null;
+	private importing: Promise<ImportResult> | null = null;
 
 	constructor(
 		private readonly plugin: BetterCalendarsPlugin,
@@ -78,9 +87,9 @@ export class EventImporter {
 	/**
 	 * Create notes for every event in the import window that doesn't have
 	 * one yet. Events whose note was created before (and maybe deleted
-	 * since) are left alone. Returns the number of notes created.
+	 * since) are left alone.
 	 */
-	importNow(): Promise<number> {
+	importNow(): Promise<ImportResult> {
 		if (this.importing) return this.importing;
 		this.importing = this.doImport().finally(() => {
 			this.importing = null;
@@ -88,7 +97,7 @@ export class EventImporter {
 		return this.importing;
 	}
 
-	private async doImport(): Promise<number> {
+	private async doImport(): Promise<ImportResult> {
 		const settings = this.plugin.settings;
 		const from = moment()
 			.startOf("day")
@@ -98,11 +107,14 @@ export class EventImporter {
 			.add(Math.max(0, settings.importDaysAhead) + 1, "days");
 
 		let created = 0;
+		let skipped = 0;
+		let inWindow = 0;
 		let changed = false;
 		for (const event of this.plugin.manager.allEvents()) {
 			const calendar = this.calendarFor(event);
 			if (!calendar || !calendar.enabled || !calendar.autoImport) continue;
 			if (event.start < from.toDate() || event.start >= to.toDate()) continue;
+			inWindow++;
 
 			const note = this.findNote(event);
 			if (note) {
@@ -113,7 +125,10 @@ export class EventImporter {
 				}
 				continue;
 			}
-			if (settings.imported[event.id] !== undefined) continue;
+			if (settings.imported[event.id] !== undefined) {
+				skipped++;
+				continue;
+			}
 
 			try {
 				await this.createNote(event, calendar);
@@ -141,7 +156,7 @@ export class EventImporter {
 		}
 
 		if (changed) await this.plugin.saveSettings();
-		return created;
+		return { created, skipped, inWindow };
 	}
 
 	/** Open the event's note, creating it first if needed. */

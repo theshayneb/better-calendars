@@ -146,11 +146,17 @@ export default class BetterCalendarsPlugin extends Plugin {
 		const auto = this.startupDone && this.importsOnThisDevice();
 		if (manual || (auto && this.settings.autoImport)) {
 			try {
-				const created = await this.importer.importNow();
+				const { created, skipped, inWindow } = await this.importer.importNow();
 				if (created > 0 || manual) {
-					new Notice(
-						`Better Calendars: ${created} new event note${created === 1 ? "" : "s"}.`
-					);
+					const days = this.settings.importDaysAhead;
+					let msg =
+						inWindow === 0
+							? `no events in the next ${days} day${days === 1 ? "" : "s"}.`
+							: `${created} new event note${created === 1 ? "" : "s"}.`;
+					if (skipped > 0) {
+						msg += ` ${skipped} event${skipped === 1 ? " was" : "s were"} skipped because ${skipped === 1 ? "its note was" : "their notes were"} deleted earlier; use "Forget import history" in the settings to create them again, or click the event in the calendar.`;
+					}
+					new Notice(`Better Calendars: ${msg}`, skipped > 0 ? 10_000 : undefined);
 				}
 			} catch (e) {
 				console.warn("[Better Calendars] import failed", e);
