@@ -1,0 +1,223 @@
+/* Better Calendars */
+
+.bc-view {
+	padding: var(--size-4-2) var(--size-4-3);
+}
+
+.bc-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: var(--size-4-2);
+}
+
+.bc-title {
+	font-size: var(--font-ui-large);
+}
+
+.bc-month {
+	font-weight: var(--font-bold);
+}
+
+.bc-year {
+	color: var(--interactive-accent);
+}
+
+.bc-nav {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+.bc-today-btn {
+	font-size: var(--font-ui-smaller);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: var(--size-2-1) var(--size-2-3);
+}
+
+.bc-grid {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.bc-grid th {
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	padding: var(--size-2-2) 0;
+	text-align: center;
+}
+
+.bc-day {
+	text-align: center;
+	vertical-align: top;
+	padding: var(--size-2-2) 0;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+}
+
+.bc-day:hover {
+	background-color: var(--interactive-hover);
+}
+
+.bc-weekend {
+	background-color: var(--background-secondary-alt);
+}
+
+.bc-grid th.bc-weekend {
+	background-color: transparent;
+}
+
+.bc-other-month {
+	color: var(--text-faint);
+}
+
+.bc-today .bc-day-num {
+	color: var(--interactive-accent);
+	font-weight: var(--font-bold);
+}
+
+.bc-selected {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.bc-selected .bc-day-num {
+	color: var(--text-on-accent);
+}
+
+.bc-selected:hover {
+	background-color: var(--interactive-accent-hover);
+}
+
+.bc-week-num {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+	width: 2em;
+}
+
+.bc-marks {
+	display: flex;
+	justify-content: center;
+	gap: 2px;
+	min-height: 6px;
+	margin-top: 2px;
+}
+
+.bc-note-dot,
+.bc-event-dot,
+.bc-swatch {
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.bc-note-dot {
+	background-color: var(--text-muted);
+}
+
+.bc-selected .bc-note-dot {
+	background-color: var(--text-on-accent);
+}
+
+.bc-event-dot,
+.bc-swatch {
+	background-color: var(--bc-dot);
+}
+
+.bc-swatch {
+	width: 10px;
+	height: 10px;
+	margin-right: var(--size-4-2);
+}
+
+.bc-day-section {
+	margin-top: var(--size-4-4);
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: var(--size-4-2);
+}
+
+.bc-day-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-weight: var(--font-semibold);
+	margin-bottom: var(--size-4-2);
+}
+
+.bc-spinning svg {
+	animation: bc-spin 1s linear infinite;
+}
+
+@keyframes bc-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.bc-empty {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.bc-error {
+	color: var(--text-error);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-2-2);
+}
+
+.bc-event {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-1);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+}
+
+.bc-event:hover {
+	background-color: var(--interactive-hover);
+}
+
+.bc-event-past {
+	opacity: 0.6;
+}
+
+.bc-event-time {
+	color: var(--text-muted);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.bc-event-title {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bc-event-icon {
+	color: var(--text-faint);
+	display: flex;
+}
+
+.bc-event-has-note .bc-event-icon {
+	color: var(--interactive-accent);
+}
+
+.bc-event-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.bc-wide-input {
+	width: 100%;
+}
