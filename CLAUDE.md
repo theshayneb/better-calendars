@@ -23,5 +23,7 @@ npm run build
 ## Things to know
 
 - Event notes are recognized by `event_id` in their frontmatter: the ICS UID for one-off events, `UID::YYYY-MM-DD` (original slot) for occurrences of recurring events.
+- The event's date lives in the owner's own property (`settings.eventDateProperty`, default `Date`); 1.0.0 notes may still have `event_date`, which is read as a fallback and removed when the event moves.
+- Daily note settings fall back to Periodic Notes (daily enabled), then the core Daily notes plugin.
 - `settings.imported` remembers which events already got a note, so deleted notes aren't recreated.
 - Don't give subclasses of Obsidian classes members that may clash with internals; use a `pw` prefix.

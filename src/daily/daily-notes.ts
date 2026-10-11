@@ -23,20 +23,65 @@ interface CoreDailyNotesOptions {
 	template?: string;
 }
 
-/** The core Daily notes plugin's settings, if it is enabled. */
+/**
+ * Daily note settings of the plugin that manages daily notes: Periodic
+ * Notes when its daily notes are on (like the Calendar plugin did),
+ * otherwise the core Daily notes plugin (read even when it is disabled).
+ */
 export function coreDailyNoteOptions(app: App): CoreDailyNotesOptions {
+	const periodic = periodicNotesDaily(app);
+	if (periodic) return periodic;
 	const internal = (
 		app as unknown as {
 			internalPlugins?: {
-				getPluginById?(id: string): {
-					enabled?: boolean;
-					instance?: { options?: CoreDailyNotesOptions };
-				} | null;
+				plugins?: Record<string, { instance?: { options?: CoreDailyNotesOptions } } | undefined>;
+				getPluginById?(id: string): { instance?: { options?: CoreDailyNotesOptions } } | null;
 			};
 		}
 	).internalPlugins;
-	const plugin = internal?.getPluginById?.("daily-notes");
-	return plugin?.instance?.options ?? {};
+	return (
+		internal?.getPluginById?.("daily-notes")?.instance?.options ??
+		internal?.plugins?.["daily-notes"]?.instance?.options ??
+		{}
+	);
+}
+
+interface PeriodicDaily {
+	enabled?: boolean;
+	folder?: string;
+	format?: string;
+	template?: string;
+	templatePath?: string;
+}
+
+function periodicNotesDaily(app: App): CoreDailyNotesOptions | null {
+	const plugin = (
+		app as unknown as {
+			plugins?: { getPlugin?(id: string): unknown };
+		}
+	).plugins?.getPlugin?.("periodic-notes") as
+		| {
+				settings?: {
+					daily?: PeriodicDaily;
+					activeCalendarSet?: string;
+					calendarSets?: { id?: string; day?: PeriodicDaily }[];
+				};
+		  }
+		| null
+		| undefined;
+	const settings = plugin?.settings;
+	if (!settings) return null;
+	// Periodic Notes 1.x keeps settings per "calendar set".
+	const set =
+		settings.calendarSets?.find((c) => c.id === settings.activeCalendarSet) ??
+		settings.calendarSets?.[0];
+	const daily = set?.day ?? settings.daily;
+	if (!daily?.enabled) return null;
+	return {
+		folder: daily.folder,
+		format: daily.format,
+		template: daily.template ?? daily.templatePath,
+	};
 }
 
 /** Plugin settings win; empty ones fall back to the core Daily notes settings. */

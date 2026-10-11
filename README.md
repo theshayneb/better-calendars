@@ -16,7 +16,7 @@ An Obsidian plugin that combines the useful parts of [Calendar](https://github.c
 - Click a day in the calendar to open its daily note. If it doesn't exist, it is created from your template (you are asked first, unless you turn that off). Ctrl/Cmd-click opens it in a new tab; right-click for more options.
 - **Create daily notes in advance** (command palette): pick a start date and a number of days, and all missing daily notes are created at once.
 - **Create daily notes ahead** (setting): keep daily notes for today and the next N days created automatically.
-- Folder, date format and template come from the core **Daily notes** plugin, unless you set them in Better Calendars' settings.
+- Folder, date format and template come from **Periodic Notes** (if its daily notes are on) or the core **Daily notes** plugin, unless you set them in Better Calendars' settings. The settings show which template is being used.
 
 Template variables, all relative to the note's own date (so a note created in advance gets the right dates):
 
@@ -39,7 +39,7 @@ If Templater is installed, its commands run on new notes too (setting **Run Temp
 From then on, Better Calendars checks your calendars every 30 minutes (configurable) and creates a note for every event in the next 7 days (configurable) that doesn't have one yet. Notes go to the `Events` folder by default, named `{{date}} {{title}}`.
 
 - Each event gets exactly one note. If you delete it, it is not created again ("Forget import history" resets that).
-- If an event moves to another day, its note's `event_date` and file name follow.
+- If an event moves to another day, its note's date property (`Date` by default) and file name follow.
 - Turn off **Import automatically** for a calendar to only create notes when you click an event in the calendar view.
 - If you use several devices with Obsidian Sync, consider turning off **Import on this device** on all but one, so two devices don't create the same note at the same moment.
 
@@ -47,7 +47,7 @@ Event note templates (a file you choose in settings, or the built-in one) can us
 
 `{{title}}` `{{date}}` `{{start}}` `{{end}}` `{{time}}` `{{duration}}` `{{location}}` `{{meeting_url}}` `{{description}}` `{{organizer}}` `{{attendees}}` `{{attendees_list}}` `{{attendees_wikilinks}}` `{{calendar}}` `{{daily_note}}` (a link to that day's daily note) `{{uid}}`. Date variables take a format: `{{start:h:mm A}}`.
 
-Better Calendars adds `event_id` and `event_date` to the frontmatter of each event note; that's how it recognizes the note later.
+Better Calendars adds an `event_id` property to each event note; that's how it recognizes the note later. It also sets the date property (`Date` by default) if your template doesn't.
 
 ## Privacy
 

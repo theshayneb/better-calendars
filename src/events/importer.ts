@@ -8,7 +8,12 @@ import {
 	sanitizeFilename,
 } from "../util/template";
 import { runTemplaterIfAvailable } from "../util/templater";
-import { FM_EVENT_DATE, FM_EVENT_ID, withEventFrontmatter } from "./with-frontmatter";
+import {
+	FM_EVENT_ID,
+	FM_LEGACY_EVENT_DATE,
+	findIsoDate,
+	withEventFrontmatter,
+} from "./with-frontmatter";
 import {
 	ensureFolder,
 	joinPath,
@@ -197,6 +202,7 @@ export class EventImporter {
 		const body = withEventFrontmatter(
 			renderEventTemplate(template, ctx),
 			event.id,
+			settings.eventDateProperty.trim(),
 			moment(event.start).format("YYYY-MM-DD")
 		);
 		if (folder) await ensureFolder(this.app, folder);
@@ -218,18 +224,29 @@ export class EventImporter {
 		return text.includes(`${FM_EVENT_ID}: ${JSON.stringify(id)}`);
 	}
 
-	/** A one-off event moved to another day: update its note's date and file name. */
+	/** An event moved to another day: update the date property and the file name. */
 	private async followReschedule(note: TFile, event: CalEvent): Promise<void> {
+		const prop = this.plugin.settings.eventDateProperty.trim();
 		const fm = this.app.metadataCache.getFileCache(note)?.frontmatter;
-		const oldDate: unknown = fm?.[FM_EVENT_DATE];
+		if (!fm) return;
+		const current = prop ? findIsoDate(fm[prop]) : null;
+		const legacy = findIsoDate(fm[FM_LEGACY_EVENT_DATE]);
+		const oldDate = current ?? legacy;
 		const newDate = moment(event.start).format("YYYY-MM-DD");
-		if (typeof oldDate !== "string" || !oldDate || oldDate === newDate) return;
+		if (!oldDate || oldDate === newDate) return;
 
 		await this.app.fileManager.processFrontMatter(
 			note,
 			(data: Record<string, unknown>) => {
-				data[FM_EVENT_DATE] = newDate;
-				if (data.date === oldDate) data.date = newDate;
+				if (prop) {
+					const value = data[prop];
+					// Keep the value's shape, e.g. "[[2026-10-12]]".
+					data[prop] =
+						typeof value === "string" && value.includes(oldDate)
+							? value.split(oldDate).join(newDate)
+							: newDate;
+				}
+				delete data[FM_LEGACY_EVENT_DATE];
 			}
 		);
 		if (note.basename.includes(oldDate)) {

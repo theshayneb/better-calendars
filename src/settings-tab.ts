@@ -5,6 +5,7 @@ import { CalendarSource } from "./types";
 import { CalendarEditModal, ConfirmModal } from "./ui/modals";
 import { FileSuggest, FolderSuggest } from "./ui/suggest";
 import { DEFAULT_DAILY_FORMAT, coreDailyNoteOptions } from "./daily/daily-notes";
+import { resolveTemplateFile } from "./util/vault";
 
 export class BetterCalendarsSettingTab extends PluginSettingTab {
 	constructor(app: App, private readonly plugin: BetterCalendarsPlugin) {
@@ -161,6 +162,18 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				})
 			);
 		new Setting(containerEl)
+			.setName("Date property")
+			.setDesc("Property that holds the event's date. If your template doesn't set it, it is added. When an event moves to another day, this property and the file name are updated.")
+			.addText((t) =>
+				t
+					.setPlaceholder("Date")
+					.setValue(settings.eventDateProperty)
+					.onChange(async (v) => {
+						settings.eventDateProperty = v.trim();
+						await save();
+					})
+			);
+		new Setting(containerEl)
 			.setName("Import now")
 			.setDesc("Refresh all calendars and import new events.")
 			.addButton((b) =>
@@ -190,7 +203,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 		new Setting(containerEl).setName("Daily notes").setHeading();
 		containerEl.createEl("p", {
 			cls: "setting-item-description",
-			text: "Empty fields use the settings of the core daily notes plugin.",
+			text: "Empty fields use the daily note settings of the Periodic Notes plugin if its daily notes are on, otherwise those of the core daily notes plugin.",
 		});
 		new Setting(containerEl)
 			.setName("Date format")
@@ -219,9 +232,15 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					void save();
 				});
 			});
+		const dailyTemplate = settings.dailyTemplate || core.template || "";
+		const templateStatus = !dailyTemplate
+			? "No template is set, so new daily notes start empty."
+			: resolveTemplateFile(this.app, dailyTemplate)
+				? `Using "${dailyTemplate}".`
+				: `"${dailyTemplate}" was not found.`;
 		new Setting(containerEl)
 			.setName("Template")
-			.setDesc("Template file for new daily notes. Supports {{date}}, {{time}}, {{title}}, {{date:FORMAT}}, {{date+1d:FORMAT}}, {{yesterday}} and {{tomorrow}}, all relative to the note's own date.")
+			.setDesc(templateStatus + " Template file for new daily notes. Supports {{date}}, {{time}}, {{title}}, {{date:FORMAT}}, {{date+1d:FORMAT}}, {{yesterday}} and {{tomorrow}}, all relative to the note's own date.")
 			.addText((t) => {
 				t.setPlaceholder(core.template || "No template")
 					.setValue(settings.dailyTemplate)

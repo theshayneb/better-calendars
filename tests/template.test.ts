@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import moment from "moment";
 import { renderDailyTemplate, renderEventTemplate, sanitizeFilename } from "../src/util/template";
-import { withEventFrontmatter } from "../src/events/with-frontmatter";
+import { findIsoDate, withEventFrontmatter } from "../src/events/with-frontmatter";
 import { CalEvent } from "../src/types";
 
 describe("renderDailyTemplate", () => {
@@ -70,21 +70,35 @@ describe("sanitizeFilename", () => {
 });
 
 describe("withEventFrontmatter", () => {
-	it("adds the keys to existing frontmatter", () => {
-		expect(withEventFrontmatter("---\ndate: x\n---\nbody", "u::1", "2026-10-12")).toBe(
-			'---\nevent_id: "u::1"\nevent_date: 2026-10-12\ndate: x\n---\nbody'
+	it("adds the id and keeps the template's own Date", () => {
+		expect(withEventFrontmatter("---\nDate: 2026-10-12\n---\nbody", "u::1", "Date", "2026-10-12")).toBe(
+			'---\nevent_id: "u::1"\nDate: 2026-10-12\n---\nbody'
+		);
+	});
+
+	it("adds the date property when the template has none", () => {
+		expect(withEventFrontmatter("---\ntags: x\n---\nbody", "u", "Date", "2026-10-12")).toBe(
+			'---\nevent_id: "u"\nDate: 2026-10-12\ntags: x\n---\nbody'
 		);
 	});
 
 	it("creates frontmatter when there is none", () => {
-		expect(withEventFrontmatter("# Hi\n", "u", "2026-10-12")).toBe(
-			'---\nevent_id: "u"\nevent_date: 2026-10-12\n---\n# Hi\n'
+		expect(withEventFrontmatter("# Hi\n", "u", "Date", "2026-10-12")).toBe(
+			'---\nevent_id: "u"\nDate: 2026-10-12\n---\n# Hi\n'
 		);
 	});
 
 	it("does not treat a lone horizontal rule as frontmatter", () => {
-		expect(withEventFrontmatter("---\nno end", "u", "2026-10-12")).toBe(
-			'---\nevent_id: "u"\nevent_date: 2026-10-12\n---\n---\nno end'
+		expect(withEventFrontmatter("---\nno end", "u", "", "2026-10-12")).toBe(
+			'---\nevent_id: "u"\n---\n---\nno end'
 		);
+	});
+});
+
+describe("findIsoDate", () => {
+	it("finds the date in plain and linked values", () => {
+		expect(findIsoDate("2026-10-12")).toBe("2026-10-12");
+		expect(findIsoDate("[[2026-10-12]]")).toBe("2026-10-12");
+		expect(findIsoDate(undefined)).toBeNull();
 	});
 });

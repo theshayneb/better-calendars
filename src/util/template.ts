@@ -133,7 +133,7 @@ export function sanitizeFilename(name: string): string {
 }
 
 export const DEFAULT_EVENT_TEMPLATE = `---
-date: {{date}}
+Date: {{date}}
 time: {{time}}
 calendar: {{calendar}}
 ---

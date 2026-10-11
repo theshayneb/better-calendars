@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] - 2026-10-11
+
+- Daily notes now also use the template, folder and format from the Periodic Notes plugin (when its daily notes are on), and from the core Daily notes plugin even when it is turned off. Before, new daily notes could come out empty in those setups.
+- The Daily notes settings now say which template is used, or that none was found.
+- Event notes no longer get an `event_date` property. The event's date goes in your own date property instead (setting "Date property", default `Date`), which is added only if your template doesn't set it, and is updated when an event moves. Only `event_id` is still added.
+
 ## [1.0.0] - 2026-10-11
 
 First release of Better Calendars, combining a stripped-down Calendar (Liam Cain) and Meetings Plus (Jacob Holm).
