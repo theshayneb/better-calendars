@@ -30,6 +30,7 @@ npm run build
 - With `includeTimes`, Date/End_Date of timed events are `YYYY-MM-DDTHH:mm`; `movedValue` updates them (date or time change) keeping their shape.
 - Daily note settings fall back to Periodic Notes (daily enabled), then the core Daily notes plugin.
 - Attendees: parsed with their PARTSTAT (rooms/resources skipped), filtered and matched to person notes (email property, then name, then alias) in `src/util/attendees.ts`.
+- `People` sync: `syncPeople` (attendees.ts) with `settings.peopleAdded[eventId]` = entries the plugin added (still wanted); only those are removed, and they are never re-added. Notes from before 1.0.11 get their current guest entries as the starting record.
 - The `event_id` property is hidden with the body class `bc-hide-event-id` (setting `hideEventId`).
 - `settings.imported` remembers which events already got a note, so deleted notes aren't recreated.
 - Don't give subclasses of Obsidian classes members that may clash with internals; use a `pw` prefix.

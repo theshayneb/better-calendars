@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.11] - 2026-10-11
+
+- `People` now stays up to date (setting "Keep people up to date", on by default). Guests who accept later are added, linked to their person note as usual. Guests the plugin added are removed when they decline or are taken off the invite. People you added yourself are never removed, and a guest you removed by hand isn't added again. Only notes that have the `People` property are touched.
+
 ## [1.0.10] - 2026-10-11
 
 - `Date` and `End_Date` now include the time for timed events, e.g. `2026-10-14T15:00` (an Obsidian date & time property). All-day events still get just the date. Setting "Include times" (on by default).

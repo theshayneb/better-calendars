@@ -108,3 +108,50 @@ function passes(a: Attendee, filter: AttendeeFilter): boolean {
 			return true;
 	}
 }
+
+/** Compare links loosely: "[[People/Ann Lee|Ann]]" and "[[Ann Lee]]" are the same person. */
+export function personKey(value: string): string {
+	let v = value.trim();
+	const link = /^\[\[([^\]]+)\]\]$/.exec(v);
+	if (link?.[1]) {
+		v = link[1].split("|")[0] ?? "";
+		v = v.slice(v.lastIndexOf("/") + 1).replace(/\.md$/i, "");
+	}
+	return v.trim().toLowerCase();
+}
+
+export interface PeopleSync {
+	/** The new property value. */
+	list: string[];
+	/** Guests the plugin has added and that are still wanted (kept even if you removed them, so they aren't added again). */
+	added: string[];
+	changed: boolean;
+}
+
+/**
+ * Bring a People list up to date with the calendar:
+ * - add wanted guests the plugin hasn't added before;
+ * - remove guests the plugin added that are no longer wanted (declined,
+ *   taken off the invite).
+ * Entries the plugin didn't add are never removed, and a guest you removed
+ * by hand is not added again.
+ */
+export function syncPeople(current: string[], wanted: string[], added: string[]): PeopleSync {
+	const wantedKeys = new Set(wanted.map(personKey));
+	const addedKeys = new Set(added.map(personKey));
+	const list = current.filter((v) => {
+		const k = personKey(v);
+		return wantedKeys.has(k) || !addedKeys.has(k);
+	});
+	const present = new Set(list.map(personKey));
+	const toAdd = wanted.filter((v) => {
+		const k = personKey(v);
+		return !present.has(k) && !addedKeys.has(k);
+	});
+	list.push(...toAdd);
+	return {
+		list,
+		added: [...added.filter((v) => wantedKeys.has(personKey(v))), ...toAdd],
+		changed: list.length !== current.length || toAdd.length > 0,
+	};
+}

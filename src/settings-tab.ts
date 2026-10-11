@@ -193,6 +193,15 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				})
 			);
 		new Setting(containerEl)
+			.setName("Keep people up to date")
+			.setDesc("When guests accept later, add them to the people property of the event note. Guests the plugin added are removed again if they decline or are taken off the invite. People you added yourself are never removed.")
+			.addToggle((t) =>
+				t.setValue(settings.syncPeople).onChange(async (v) => {
+					settings.syncPeople = v;
+					await save();
+				})
+			);
+		new Setting(containerEl)
 			.setName("People property")
 			.setDesc("Property that gets the guests list when it is empty in your template.")
 			.addText((t) =>
@@ -307,6 +316,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 						"Forget",
 						async () => {
 							settings.imported = {};
+							settings.peopleAdded = {};
 							await save();
 							this.display();
 						}

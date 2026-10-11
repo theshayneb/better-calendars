@@ -10,7 +10,14 @@ import {
 	sanitizeFilename,
 } from "../util/template";
 import { createNote } from "../util/templater";
-import { PersonNote, buildPeopleIndex, selectAttendees } from "../util/attendees";
+import {
+	AttendeeText,
+	PersonNote,
+	buildPeopleIndex,
+	personKey,
+	selectAttendees,
+	syncPeople,
+} from "../util/attendees";
 import {
 	FM_EVENT_ID,
 	FM_LEGACY_EVENT_DATE,
@@ -124,6 +131,7 @@ export class EventImporter {
 			const note = this.findNote(event);
 			if (note) {
 				await this.followReschedule(note, event);
+				if (await this.followPeople(note, event)) changed = true;
 				if (settings.imported[event.id] === undefined) {
 					settings.imported[event.id] = event.start.getTime();
 					changed = true;
@@ -156,6 +164,12 @@ export class EventImporter {
 		for (const [id, start] of Object.entries(settings.imported)) {
 			if (start < cutoff) {
 				delete settings.imported[id];
+				changed = true;
+			}
+		}
+		for (const id of Object.keys(settings.peopleAdded)) {
+			if (settings.imported[id] === undefined) {
+				delete settings.peopleAdded[id];
 				changed = true;
 			}
 		}
@@ -204,16 +218,7 @@ export class EventImporter {
 		const ctx: EventTemplateContext = {
 			event,
 			calendarName: calendar.name,
-			attendees: selectAttendees(
-				event.attendees,
-				{
-					filter: settings.attendeeFilter,
-					format: settings.attendeeFormat,
-					exclude: settings.attendeeExclude,
-					linkUnmatched: settings.linkUnmatchedAttendees,
-				},
-				event.attendees.length > 0 ? this.peopleIndex(joinPath(folder, "event.md")) : null
-			),
+			attendees: this.attendeesFor(event, joinPath(folder, "event.md")),
 			dailyNoteLink: dailyNoteLink(
 				dailyNoteConfig(this.app, settings),
 				moment(event.start)
@@ -240,7 +245,12 @@ export class EventImporter {
 			this.dateValue(event, "start")
 		);
 		if (folder) await ensureFolder(this.app, folder);
-		return createNote(this.app, path, body, settings.runTemplater);
+		const file = await createNote(this.app, path, body, settings.runTemplater);
+		// Remember which guests we wrote, so only those are ever removed again.
+		if (ctx.attendees.length > 0) {
+			settings.peopleAdded[event.id] = ctx.attendees.map((a) => a.link);
+		}
+		return file;
 	}
 
 	/** 2026-10-12T15:00 (timed events, if times are on) or 2026-10-12. The end date of all-day events is inclusive. */
@@ -253,6 +263,72 @@ export class EventImporter {
 	private dateTimeOf(e: CalEvent, which: "start" | "end"): string | null {
 		if (e.allDay || !this.plugin.settings.includeTimes) return null;
 		return moment(which === "start" ? e.start : e.end).format("YYYY-MM-DDTHH:mm");
+	}
+
+	private attendeesFor(event: CalEvent, sourcePath: string): AttendeeText[] {
+		const settings = this.plugin.settings;
+		return selectAttendees(
+			event.attendees,
+			{
+				filter: settings.attendeeFilter,
+				format: settings.attendeeFormat,
+				exclude: settings.attendeeExclude,
+				linkUnmatched: settings.linkUnmatchedAttendees,
+			},
+			event.attendees.length > 0 ? this.peopleIndex(sourcePath) : null
+		);
+	}
+
+	/**
+	 * Add guests who accepted since, and remove guests the plugin added who
+	 * declined or were taken off the invite. Only touches notes that have the
+	 * People property. Returns true when the plugin's record changed.
+	 */
+	private async followPeople(note: TFile, event: CalEvent): Promise<boolean> {
+		const settings = this.plugin.settings;
+		const prop = settings.eventPeopleProperty.trim();
+		if (!settings.syncPeople || !prop) return false;
+		const fm = this.app.metadataCache.getFileCache(note)?.frontmatter;
+		if (!fm || !(prop in fm)) return false;
+
+		const raw: unknown = fm[prop];
+		const current = Array.isArray(raw)
+			? raw.filter((v): v is string => typeof v === "string")
+			: typeof raw === "string" && raw.trim()
+				? [raw]
+				: [];
+		const wanted = this.attendeesFor(event, note.path).map((a) => a.link);
+		let added = settings.peopleAdded[event.id];
+		if (!added) {
+			// Notes from before this was tracked: count the entries that are
+			// guests of this event as ours.
+			const guests = new Set(
+				selectAttendees(
+					event.attendees,
+					{
+						filter: "all",
+						format: settings.attendeeFormat,
+						exclude: "",
+						linkUnmatched: settings.linkUnmatchedAttendees,
+					},
+					event.attendees.length > 0 ? this.peopleIndex(note.path) : null
+				).flatMap((a) => [personKey(a.link), personKey(a.text)])
+			);
+			added = current.filter((v) => guests.has(personKey(v)));
+		}
+
+		const result = syncPeople(current, wanted, added);
+		if (result.changed) {
+			await this.app.fileManager.processFrontMatter(
+				note,
+				(data: Record<string, unknown>) => {
+					data[prop] = result.list;
+				}
+			);
+		}
+		const before = JSON.stringify(settings.peopleAdded[event.id] ?? null);
+		settings.peopleAdded[event.id] = result.added;
+		return before !== JSON.stringify(result.added);
 	}
 
 	/** Values for empty template properties, by lower-case property name. */

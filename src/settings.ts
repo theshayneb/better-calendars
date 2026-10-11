@@ -47,6 +47,10 @@ export interface BetterCalendarsSettings {
 	/** Fill template properties left empty (Date:, People:, Location:, ...) by name. */
 	fillEmptyProperties: boolean;
 	runTemplater: boolean;
+	/** Keep the People property of event notes up to date with the guests. */
+	syncPeople: boolean;
+	/** People entries the plugin added, per event id; only these are ever removed again. */
+	peopleAdded: Record<string, string[]>;
 	/** Events that already got a note: event id -> event start (ms). Deleting such a note doesn't bring it back. */
 	imported: Record<string, number>;
 }
@@ -83,6 +87,8 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	hideEventId: true,
 	runTemplater: true,
 	imported: {},
+	syncPeople: true,
+	peopleAdded: {},
 };
 
 export function normalizeCalendar(raw: unknown): CalendarSource {

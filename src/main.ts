@@ -102,6 +102,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 				normalizeCalendar
 			),
 			imported: { ...(loaded.imported ?? {}) },
+			peopleAdded: { ...(loaded.peopleAdded ?? {}) },
 		};
 	}
 

@@ -8,7 +8,7 @@ import {
 	withEventFrontmatter,
 } from "../src/events/with-frontmatter";
 import { CalEvent } from "../src/types";
-import { buildPeopleIndex, selectAttendees } from "../src/util/attendees";
+import { buildPeopleIndex, personKey, selectAttendees, syncPeople } from "../src/util/attendees";
 
 describe("renderDailyTemplate", () => {
 	const date = moment("2026-12-24", "YYYY-MM-DD");
@@ -227,5 +227,41 @@ describe("movedValue", () => {
 		expect(movedValue("2026-10-12", "2026-10-12", "2026-10-12T15:00")).toBeNull();
 		expect(movedValue("soon", "2026-10-12", null)).toBeNull();
 		expect(movedValue(undefined, "2026-10-12", null)).toBeNull();
+	});
+});
+
+describe("syncPeople", () => {
+	it("adds guests who accepted later", () => {
+		const r = syncPeople(["[[Ann]]"], ["[[Ann]]", "[[Bob]]"], ["[[Ann]]"]);
+		expect(r.list).toEqual(["[[Ann]]", "[[Bob]]"]);
+		expect(r.added).toEqual(["[[Ann]]", "[[Bob]]"]);
+		expect(r.changed).toBe(true);
+	});
+
+	it("removes only guests the plugin added", () => {
+		const r = syncPeople(["[[Ann]]", "[[Bob]]", "[[My friend]]"], ["[[Bob]]"], ["[[Ann]]", "[[Bob]]"]);
+		expect(r.list).toEqual(["[[Bob]]", "[[My friend]]"]);
+		expect(r.added).toEqual(["[[Bob]]"]);
+		expect(r.changed).toBe(true);
+	});
+
+	it("keeps people added by hand, even if they are guests who declined", () => {
+		const r = syncPeople(["[[Dan]]"], [], []);
+		expect(r.list).toEqual(["[[Dan]]"]);
+		expect(r.changed).toBe(false);
+	});
+
+	it("matches links loosely and changes nothing when up to date", () => {
+		const r = syncPeople(["[[People/Ann Lee|Ann]]"], ["[[Ann Lee]]"], ["[[Ann Lee]]"]);
+		expect(r.list).toEqual(["[[People/Ann Lee|Ann]]"]);
+		expect(r.changed).toBe(false);
+		expect(personKey("[[People/Ann Lee.md|A]]")).toBe("ann lee");
+	});
+
+	it("does not add a guest again after you removed them", () => {
+		const r = syncPeople([], ["[[Ann]]"], ["[[Ann]]"]);
+		expect(r.list).toEqual([]);
+		expect(r.added).toEqual(["[[Ann]]"]);
+		expect(r.changed).toBe(false);
 	});
 });
