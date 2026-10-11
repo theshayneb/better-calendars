@@ -261,7 +261,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			);
 		new Setting(containerEl)
 			.setName("Import now")
-			.setDesc("Refresh all calendars and import new events.")
+			.setDesc("Refresh all calendars, import new events, and create the daily notes set under \"Create daily notes ahead\".")
 			.addButton((b) =>
 				b.setButtonText("Import now").onClick(() => void this.plugin.refreshAndImport(true))
 			);

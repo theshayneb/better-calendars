@@ -240,7 +240,9 @@ export class CalendarView extends ItemView {
 
 		const refresh = head.createDiv({
 			cls: "bc-refresh clickable-icon",
-			attr: { "aria-label": "Refresh calendars" },
+			attr: {
+				"aria-label": "Refresh calendars, import events and create daily notes ahead",
+			},
 		});
 		setIcon(refresh, "refresh-cw");
 		if (this.plugin.manager.isRefreshing()) refresh.addClass("bc-spinning");

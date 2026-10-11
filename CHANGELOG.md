@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.8] - 2026-10-11
+
+- Renamed the command "Refresh calendars and import events" to "Refresh calendars, import events and create daily notes ahead", since it also creates the daily notes set under "Create daily notes ahead". The refresh button and "Import now" setting say so too. Hotkeys assigned to the command keep working.
+
 ## [1.0.7] - 2026-10-11
 
 - Fixed daily notes getting another day's template when several notes are created in a row (create in advance, auto-create, event import). Templater's own "trigger on new file creation" could run on the previous note while Better Calendars ran Templater on the next one; Templater shares one `tp` state, so `tp.file.title` could belong to the wrong note. New notes are now handled one at a time, and Templater's trigger stays off them for two seconds after they're done.

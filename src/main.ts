@@ -68,7 +68,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 		});
 		this.addCommand({
 			id: "refresh-and-import",
-			name: "Refresh calendars and import events",
+			name: "Refresh calendars, import events and create daily notes ahead",
 			callback: () => void this.refreshAndImport(true),
 		});
 
