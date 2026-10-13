@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.12] - 2026-10-13
+
+- When an event is renamed in the calendar, its note's file name follows: the old title in the file name is replaced by the new one. A `Title` property that still holds the old title is updated too. Notes you renamed yourself keep their name.
+
 ## [1.0.11] - 2026-10-11
 
 - `People` now stays up to date (setting "Keep people up to date", on by default). Guests who accept later are added, linked to their person note as usual. Guests the plugin added are removed when they decline or are taken off the invite. People you added yourself are never removed, and a guest you removed by hand isn't added again. Only notes that have the `People` property are touched.

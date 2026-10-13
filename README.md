@@ -39,6 +39,7 @@ If Templater is installed, its commands run on new notes too (setting **Run Temp
 From then on, Better Calendars checks your calendars every 30 minutes (configurable) and creates a note for every event in the next 7 days (configurable) that doesn't have one yet. Notes go to the `Events` folder by default, named `{{date}} {{title}}`.
 
 - Each event gets exactly one note. If you delete it, it is not created again ("Forget import history" resets that).
+- If an event is renamed, the title in its note's file name (and a `Title` property with the old title) follows. Notes you renamed yourself are left alone.
 - If an event moves to another day, its note's date property (`Date` by default), end date property (`End_Date` by default, e.g. `End_Date: {{end_date}}` in your template) and file name follow.
 - Turn off **Import automatically** for a calendar to only create notes when you click an event in the calendar view.
 - If you use several devices with Obsidian Sync, consider turning off **Import on this device** on all but one, so two devices don't create the same note at the same moment.

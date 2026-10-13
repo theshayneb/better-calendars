@@ -132,6 +132,7 @@ export class EventImporter {
 			if (note) {
 				await this.followReschedule(note, event);
 				if (await this.followPeople(note, event)) changed = true;
+				if (await this.followTitle(note, event)) changed = true;
 				if (settings.imported[event.id] === undefined) {
 					settings.imported[event.id] = event.start.getTime();
 					changed = true;
@@ -170,6 +171,12 @@ export class EventImporter {
 		for (const id of Object.keys(settings.peopleAdded)) {
 			if (settings.imported[id] === undefined) {
 				delete settings.peopleAdded[id];
+				changed = true;
+			}
+		}
+		for (const id of Object.keys(settings.noteNames)) {
+			if (settings.imported[id] === undefined) {
+				delete settings.noteNames[id];
 				changed = true;
 			}
 		}
@@ -246,6 +253,7 @@ export class EventImporter {
 		);
 		if (folder) await ensureFolder(this.app, folder);
 		const file = await createNote(this.app, path, body, settings.runTemplater);
+		settings.noteNames[event.id] = { name: file.basename, title: event.title };
 		// Remember which guests we wrote, so only those are ever removed again.
 		if (ctx.attendees.length > 0) {
 			settings.peopleAdded[event.id] = ctx.attendees.map((a) => a.link);
@@ -439,13 +447,59 @@ export class EventImporter {
 		);
 		const dateMoved = oldDate !== null && oldDate !== newDate;
 		if (dateMoved && oldDate && note.basename.includes(oldDate)) {
-			const newName = note.basename.split(oldDate).join(newDate);
-			const parent = note.parent?.path ?? "";
-			const target = uniquePath(
-				this.app,
-				joinPath(parent === "/" ? "" : parent, `${newName}.md`)
-			);
-			await this.app.fileManager.renameFile(note, target);
+			await this.renameNote(note, event, note.basename.split(oldDate).join(newDate));
 		}
+	}
+
+	/** Rename a note in its folder, keeping the record of its plugin-given name current. */
+	private async renameNote(note: TFile, event: CalEvent, newName: string): Promise<void> {
+		const oldName = note.basename;
+		if (!newName || newName === oldName) return;
+		const parent = note.parent?.path ?? "";
+		const target = uniquePath(
+			this.app,
+			joinPath(parent === "/" ? "" : parent, `${newName}.md`)
+		);
+		await this.app.fileManager.renameFile(note, target);
+		const record = this.plugin.settings.noteNames[event.id];
+		if (record && record.name === oldName) record.name = note.basename;
+	}
+
+	/**
+	 * The event was renamed in the calendar: put the new title in the file
+	 * name (where the old one was) and in a `title` property that still has
+	 * the old title. Notes you renamed yourself keep their name. Returns true
+	 * when the plugin's record changed.
+	 */
+	private async followTitle(note: TFile, event: CalEvent): Promise<boolean> {
+		const records = this.plugin.settings.noteNames;
+		const record = records[event.id];
+		if (!record) {
+			// Notes from before titles were tracked: start from what's there.
+			records[event.id] = { name: note.basename, title: event.title };
+			return true;
+		}
+		if (record.title === event.title) return false;
+
+		const oldTitle = record.title;
+		record.title = event.title;
+		const fm = this.app.metadataCache.getFileCache(note)?.frontmatter ?? {};
+		const titleKeys = Object.keys(fm).filter(
+			(k) => k.toLowerCase() === "title" && fm[k] === oldTitle
+		);
+		if (titleKeys.length > 0) {
+			await this.app.fileManager.processFrontMatter(
+				note,
+				(data: Record<string, unknown>) => {
+					for (const k of titleKeys) data[k] = event.title;
+				}
+			);
+		}
+		const oldPart = sanitizeFilename(oldTitle);
+		const newPart = sanitizeFilename(event.title);
+		if (note.basename === record.name && oldPart && newPart && note.basename.includes(oldPart)) {
+			await this.renameNote(note, event, note.basename.split(oldPart).join(newPart));
+		}
+		return true;
 	}
 }

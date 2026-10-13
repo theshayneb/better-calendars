@@ -317,6 +317,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 						async () => {
 							settings.imported = {};
 							settings.peopleAdded = {};
+							settings.noteNames = {};
 							await save();
 							this.display();
 						}

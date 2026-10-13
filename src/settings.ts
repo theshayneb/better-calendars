@@ -51,6 +51,8 @@ export interface BetterCalendarsSettings {
 	syncPeople: boolean;
 	/** People entries the plugin added, per event id; only these are ever removed again. */
 	peopleAdded: Record<string, string[]>;
+	/** Per event id: the file name the plugin gave the note and the event title it was made from. */
+	noteNames: Record<string, { name: string; title: string }>;
 	/** Events that already got a note: event id -> event start (ms). Deleting such a note doesn't bring it back. */
 	imported: Record<string, number>;
 }
@@ -89,6 +91,7 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	imported: {},
 	syncPeople: true,
 	peopleAdded: {},
+	noteNames: {},
 };
 
 export function normalizeCalendar(raw: unknown): CalendarSource {

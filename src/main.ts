@@ -103,6 +103,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 			),
 			imported: { ...(loaded.imported ?? {}) },
 			peopleAdded: { ...(loaded.peopleAdded ?? {}) },
+			noteNames: { ...(loaded.noteNames ?? {}) },
 		};
 	}
 
