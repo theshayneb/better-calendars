@@ -121,9 +121,9 @@ fsq: 4b8f9c2af964a520a6f533e3
 
 ### Setting up check-ins
 
-1. In the [Foursquare developer console](https://foursquare.com/developers/), open your project and create an API key (for place search).
+1. In the [Foursquare developer console](https://foursquare.com/developers/), open your project, go to **Service API Keys** and generate a key (for place search). Copy it right away; it is shown only once. This is not the Client Secret.
 2. In the same project's OAuth settings, set the **Redirect URL** to `obsidian://better-calendars-swarm`, and copy the **Client ID** and **Client Secret**.
-3. In Settings → Better Calendars → **Check-ins**, enter the API key, client ID and client secret, then press **Connect** and approve the access in your browser. You come back to Obsidian connected. Do this once, on desktop; the connection syncs to your other devices with the plugin's settings.
+3. In Settings → Better Calendars → **Check-ins**, enter the Service API Key under "Place search" (the **Check key** button tries it) and the Client ID and Client Secret under "Swarm", then press **Connect** and approve the access in your browser. You come back to Obsidian connected. Do this once, on desktop; the connection syncs to your other devices with the plugin's settings.
 
 ## Privacy
 

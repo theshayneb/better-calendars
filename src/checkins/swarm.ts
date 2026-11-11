@@ -12,6 +12,8 @@ import {
 const DEVICE_KEY = "better-calendars-device-id";
 /** How many Swarm check-in ids made from Obsidian are remembered. */
 const MAX_POSTED_IDS = 5000;
+/** Give up on a queued check-in after this many tries. */
+const MAX_ATTEMPTS = 20;
 
 /** A random id for this device, kept in its local storage (not synced). */
 export function deviceId(plugin: BetterCalendarsPlugin): string {
@@ -119,7 +121,7 @@ export async function retrySwarmQueue(plugin: BetterCalendarsPlugin): Promise<nu
 		} catch (e) {
 			item.attempts++;
 			item.lastError = e instanceof Error ? e.message : String(e);
-			if (!isTransient(e)) {
+			if (!isTransient(e) || item.attempts >= MAX_ATTEMPTS) {
 				s.swarmQueue.splice(s.swarmQueue.indexOf(item), 1);
 				new Notice(
 					`Better Calendars: gave up posting ${item.placeName} to Swarm. ${item.lastError}`,

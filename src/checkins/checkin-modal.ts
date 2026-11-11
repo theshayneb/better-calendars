@@ -108,10 +108,13 @@ export class CheckinModal extends Modal {
 	onOpen(): void {
 		this.modalEl.addClass("bc-ci-modal");
 		this.pwNotes = listPlaceNotes(this.app, this.plugin.settings);
-		if (!this.plugin.settings.fsqApiKey.trim()) {
+		const key = this.plugin.settings.fsqApiKey.trim();
+		if (!key || key === this.plugin.settings.swarmClientSecret.trim()) {
 			this.setTitle("Check in");
 			this.contentEl.createEl("p", {
-				text: "Add your Foursquare API key under Settings → Better Calendars → Check-ins first.",
+				text: key
+					? "The Service API key setting holds your Client Secret. Place search needs a Service API Key: see Settings → Better Calendars → Check-ins."
+					: "Add your Foursquare Service API Key under Settings → Better Calendars → Check-ins first.",
 			});
 			return;
 		}

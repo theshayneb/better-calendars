@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1] - 2026-11-11
+
+- Check-in settings are clearer: "Place search" needs a Service API Key (developer console → your project → Service API Keys), "Swarm" needs the Client ID and Client Secret. A warning shows when the Service API key field holds the Client Secret, and the check-in screen says so too.
+- New "Check key" button that tries one place search.
+- When Foursquare rejects the key it breaks off its answer, which Android reported as "unexpected end of stream". Better Calendars now explains that the key was rejected and what to use instead.
+- Swarm check-ins are sent as a form body (Android can fail a POST without one), and a queued Swarm check-in is given up after 20 tries.
+
 ## [1.1.0] - 2026-11-11
 
 Check-ins, Swarm/Foursquare style.

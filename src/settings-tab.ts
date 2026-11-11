@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, moment } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, moment } from "obsidian";
 import type BetterCalendarsPlugin from "./main";
 import { WeekStart } from "./settings";
 import { AttendeeFilter, AttendeeFormat } from "./util/attendees";
@@ -7,7 +7,7 @@ import { CalendarEditModal, ConfirmModal } from "./ui/modals";
 import { FileSuggest, FolderSuggest } from "./ui/suggest";
 import { DEFAULT_DAILY_FORMAT, coreDailyNoteOptions } from "./daily/daily-notes";
 import { resolveTemplateFile } from "./util/vault";
-import { SWARM_REDIRECT } from "./checkins/foursquare";
+import { SWARM_REDIRECT, searchPlaces } from "./checkins/foursquare";
 import { disconnectSwarm, startSwarmConnect } from "./checkins/swarm";
 import { normalizeTag } from "./checkins/logic";
 
@@ -459,24 +459,61 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				.filter(Boolean);
 
 		new Setting(containerEl).setName("Check-ins").setHeading();
-		new Setting(containerEl)
-			.setName("Foursquare API key")
-			.setDesc("For finding places. From your Foursquare developer project.")
+		containerEl.createEl("p", {
+			cls: "setting-item-description",
+			text: "Two different things from your Foursquare developer project: a Service API Key to find places, and the Client ID and Client Secret to connect Swarm.",
+		});
+
+		new Setting(containerEl).setName("Place search").setHeading();
+		const keyIsSecret = () =>
+			settings.fsqApiKey !== "" && settings.fsqApiKey === settings.swarmClientSecret;
+		const keySetting = new Setting(containerEl)
+			.setName("Service API key")
 			.addText((t) => {
 				t.inputEl.type = "password";
-				t.setValue(settings.fsqApiKey).onChange(async (v) => {
-					settings.fsqApiKey = v.trim();
-					await save();
-				});
-			});
+				t.setPlaceholder("Paste the Service API Key")
+					.setValue(settings.fsqApiKey)
+					.onChange(async (v) => {
+						settings.fsqApiKey = v.trim();
+						showKeyWarning();
+						await save();
+					});
+			})
+			.addButton((b) =>
+				b.setButtonText("Check key").onClick(async () => {
+					b.setDisabled(true);
+					try {
+						await searchPlaces(settings.fsqApiKey, {
+							near: settings.lastLocation ?? { lat: 40.758, lng: -73.9855 },
+							limit: 1,
+						});
+						new Notice("Better Calendars: the Service API key works.");
+					} catch (e) {
+						new Notice(`Better Calendars: ${e instanceof Error ? e.message : String(e)}`, 15_000);
+					} finally {
+						b.setDisabled(false);
+					}
+				})
+			);
 
+		keySetting.descEl.appendText(
+			"In the Foursquare developer console: open your project, go to Service API Keys and generate a key. Copy the key it shows (it's shown only once). This is not the Client Secret."
+		);
+		const keyWarning = keySetting.descEl.createDiv({
+			cls: "mod-warning",
+			text: "This is your Client Secret, not a Service API Key. Place search needs the Service API Key.",
+		});
+		const showKeyWarning = () => keyWarning.toggle(keyIsSecret());
+		showKeyWarning();
+
+		new Setting(containerEl).setName("Swarm").setHeading();
 		const connected = Boolean(settings.swarmToken);
 		const swarm = new Setting(containerEl)
-			.setName("Swarm")
+			.setName("Swarm account")
 			.setDesc(
 				connected
 					? `Connected as ${settings.swarmUser || "your account"}.`
-					: `Not connected. In your Foursquare developer project, set the redirect URL to ${SWARM_REDIRECT}, enter the client ID and secret below, then connect.`
+					: `Not connected. In your Foursquare developer project, set the redirect URL to ${SWARM_REDIRECT}, enter the Client ID and Client Secret below (the two values shown on the project page), then connect.`
 			);
 		if (connected) {
 			swarm.addButton((b) =>
@@ -493,19 +530,23 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					.onClick(() => startSwarmConnect(this.plugin))
 			);
 		}
-		new Setting(containerEl).setName("Client ID").addText((t) =>
+		new Setting(containerEl).setName("Client ID").setDesc("For connecting Swarm only.").addText((t) =>
 			t.setValue(settings.swarmClientId).onChange(async (v) => {
 				settings.swarmClientId = v.trim();
 				await save();
 			})
 		);
-		new Setting(containerEl).setName("Client secret").addText((t) => {
-			t.inputEl.type = "password";
-			t.setValue(settings.swarmClientSecret).onChange(async (v) => {
-				settings.swarmClientSecret = v.trim();
-				await save();
+		new Setting(containerEl)
+			.setName("Client secret")
+			.setDesc("For connecting Swarm only. Not used for place search.")
+			.addText((t) => {
+				t.inputEl.type = "password";
+				t.setValue(settings.swarmClientSecret).onChange(async (v) => {
+					settings.swarmClientSecret = v.trim();
+					showKeyWarning();
+					await save();
+				});
 			});
-		});
 		if (settings.swarmQueue.length > 0) {
 			new Setting(containerEl)
 				.setName("Waiting for Swarm")
@@ -521,6 +562,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				);
 		}
 
+		new Setting(containerEl).setName("Place notes").setHeading();
 		new Setting(containerEl)
 			.setName("Places folder")
 			.setDesc("Where place notes live.")

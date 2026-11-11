@@ -56,18 +56,32 @@ function toPlace(r: RawPlace): FsqPlace | null {
 	};
 }
 
+/** Status we give a response that Foursquare cut off before its body (see `call`). */
+export const BROKEN_ANSWER = -1;
+
+/**
+ * Foursquare's Places API answers a rejected key with a 401 whose body it
+ * never sends: it announces a length, then closes the connection. Android
+ * reports that as "unexpected end of stream", desktop as a protocol error.
+ */
+const BROKEN_ANSWER_RE =
+	/end of stream|transfer closed|not closed cleanly|protocol[_ ]?error|content[_ ]length|incomplete|premature|ECONNRESET|socket hang up/i;
+
 async function call(
 	url: string,
-	init: { method?: string; headers?: Record<string, string>; body?: string }
+	init: { method?: string; headers?: Record<string, string>; body?: string; contentType?: string },
+	/** What a cut-off answer most likely means for this request. */
+	brokenAnswerMeans: string
 ): Promise<RequestUrlResponse> {
 	let res: RequestUrlResponse;
 	try {
 		res = await requestUrl({ url, throw: false, ...init });
 	} catch (e) {
-		throw new FoursquareError(
-			`Couldn't reach Foursquare (${e instanceof Error ? e.message : String(e)}).`,
-			0
-		);
+		const raw = e instanceof Error ? e.message : String(e);
+		if (BROKEN_ANSWER_RE.test(raw)) {
+			throw new FoursquareError(`${brokenAnswerMeans} (${raw})`, BROKEN_ANSWER);
+		}
+		throw new FoursquareError(`Couldn't reach Foursquare (${raw}).`, 0);
 	}
 	if (res.status >= 400) {
 		let detail = "";
@@ -103,16 +117,35 @@ export async function searchPlaces(
 		}
 	}
 	if (opts.query) params.set("query", opts.query);
-	const res = await call(`${PLACES_API}/places/search?${params.toString()}`, {
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"X-Places-Api-Version": PLACES_VERSION,
-			Accept: "application/json",
-		},
-	});
+	let res: RequestUrlResponse;
+	try {
+		res = await call(
+			`${PLACES_API}/places/search?${params.toString()}`,
+			{
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					"X-Places-Api-Version": PLACES_VERSION,
+					Accept: "application/json",
+				},
+			},
+			KEY_REJECTED
+		);
+	} catch (e) {
+		if (e instanceof FoursquareError && (e.status === 401 || e.status === BROKEN_ANSWER)) {
+			throw new FoursquareError(
+				/^fsq3/i.test(apiKey) ? `${KEY_REJECTED} ${LEGACY_KEY}` : KEY_REJECTED,
+				401
+			);
+		}
+		throw e;
+	}
 	const results = (res.json as { results?: RawPlace[] }).results ?? [];
 	return results.map(toPlace).filter((p): p is FsqPlace => p !== null);
 }
+
+const KEY_REJECTED =
+	"Foursquare rejected the API key. The Places API needs a Service API Key: in the Foursquare developer console, open your project, then Service API Keys, generate one and paste it under Settings → Better Calendars → Check-ins.";
+const LEGACY_KEY = "Keys starting with fsq3 are the older kind and no longer work here.";
 
 export function swarmAuthorizeUrl(clientId: string): string {
 	const params = new URLSearchParams({
@@ -132,13 +165,18 @@ export async function swarmExchangeCode(clientId: string, clientSecret: string, 
 		redirect_uri: SWARM_REDIRECT,
 		code,
 	});
-	const res = await call(`https://foursquare.com/oauth2/access_token?${params.toString()}`, {
-		headers: { Accept: "application/json" },
-	});
+	const res = await call(
+		`https://foursquare.com/oauth2/access_token?${params.toString()}`,
+		{ headers: { Accept: "application/json" } },
+		"Foursquare broke off its answer while signing in. Check the client ID and secret, then connect again."
+	);
 	const token = (res.json as { access_token?: string }).access_token;
 	if (!token) throw new FoursquareError("Foursquare didn't return an access token.", res.status);
 	return token;
 }
+
+const SWARM_BROKEN =
+	"Foursquare broke off its answer. If this keeps happening, disconnect and connect Swarm again in the settings.";
 
 function v2Headers(token: string): Record<string, string> {
 	return { Authorization: `Bearer ${token}`, Accept: "application/json" };
@@ -146,7 +184,11 @@ function v2Headers(token: string): Record<string, string> {
 
 /** The connected user's name. */
 export async function swarmUserName(token: string): Promise<string> {
-	const res = await call(`${V2_API}/users/self?v=${V2_VERSION}`, { headers: v2Headers(token) });
+	const res = await call(
+		`${V2_API}/users/self?v=${V2_VERSION}`,
+		{ headers: v2Headers(token) },
+		SWARM_BROKEN
+	);
 	const user = (res.json as { response?: { user?: { firstName?: string; lastName?: string } } })
 		.response?.user;
 	return [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Swarm user";
@@ -162,10 +204,17 @@ export async function swarmCheckIn(
 	const params = new URLSearchParams({ v: V2_VERSION, venueId, broadcast: "public" });
 	if (shout) params.set("shout", shout);
 	if (at) params.set("ll", `${at.lat},${at.lng}`);
-	const res = await call(`${V2_API}/checkins/add?${params.toString()}`, {
-		method: "POST",
-		headers: v2Headers(token),
-	});
+	// Sent as a form body: Android's HTTP stack can fail a POST without one.
+	const res = await call(
+		`${V2_API}/checkins/add?v=${V2_VERSION}`,
+		{
+			method: "POST",
+			headers: v2Headers(token),
+			contentType: "application/x-www-form-urlencoded",
+			body: params.toString(),
+		},
+		SWARM_BROKEN
+	);
 	const id = (res.json as { response?: { checkin?: { id?: string } } }).response?.checkin?.id;
 	if (!id) throw new FoursquareError("Swarm didn't confirm the check-in.", res.status);
 	return id;
