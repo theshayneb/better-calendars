@@ -189,9 +189,24 @@ export class ReviewModal extends Modal {
 			cls: "bc-rv-create-daily",
 			text: `Create ${date} from your template`,
 		});
+		const here = visitsHere(this.pwPending, place.id);
+		let allBox: HTMLInputElement | null = null;
+		const dayExists = (d: string) => Boolean(getDailyNote(this.app, config, moment(d, "YYYY-MM-DD")));
 		const showDaily = () => {
-			dailyText.setText(daily ? ` Add to daily note ${date}` : ` Add to daily note ${date} (doesn't exist)`);
-			createDaily.toggle(!daily);
+			if (allBox?.checked) {
+				const days = [...new Set(here.map(localDate))];
+				const missing = days.filter((d) => !dayExists(d)).length;
+				dailyText.setText(
+					` Add to the daily notes of all ${here.length} visits` +
+						(missing > 0
+							? ` (${missing} of ${days.length} day${days.length === 1 ? "" : "s"} ${missing === 1 ? "has" : "have"} no daily note; you'll be asked)`
+							: "")
+				);
+				createDaily.toggle(false);
+			} else {
+				dailyText.setText(daily ? ` Add to daily note ${date}` : ` Add to daily note ${date} (doesn't exist)`);
+				createDaily.toggle(!daily);
+			}
 		};
 		dailyBox.checked = Boolean(daily);
 		createDaily.onclick = async () => {
@@ -204,16 +219,35 @@ export class ReviewModal extends Modal {
 			}
 			createDaily.disabled = false;
 			showDaily();
+
+		if (here.length > 1) {
+			const allRow = contentEl.createEl("label", { cls: "bc-ci-check" });
+			const box = allRow.createEl("input", { attr: { type: "checkbox" } });
+			allBox = box;
+			allRow.appendText(` Apply to all ${here.length} visits here`);
+			// The visits it would save, with whether their day has a daily note.
+			const list = contentEl.createEl("ul", { cls: "bc-rv-visits" });
+			for (const v of here) {
+				const d = localDate(v);
+				const li = list.createEl("li");
+				li.createSpan({ text: `${moment(d, "YYYY-MM-DD").format("ddd")} ${localStamp(v)}` });
+				li.createSpan({
+					cls: dayExists(d) ? "bc-rv-has-daily" : "bc-rv-no-daily",
+					text: dayExists(d) ? " · daily note ✓" : " · no daily note",
+				});
+				if (v.shout) li.createSpan({ cls: "bc-rv-visit-shout", text: ` · “${v.shout}”` });
+			}
+			list.toggle(false);
+			box.onchange = () => {
+				list.toggle(box.checked);
+				if (box.checked) dailyBox.checked = here.some((v) => dayExists(localDate(v)));
+				else dailyBox.checked = Boolean(daily);
+				showDaily();
+			};
+		}
 		};
 		showDaily();
 
-		const here = visitsHere(this.pwPending, place.id);
-		let allBox: HTMLInputElement | null = null;
-		if (here.length > 1) {
-			const allRow = contentEl.createEl("label", { cls: "bc-ci-check" });
-			allBox = allRow.createEl("input", { attr: { type: "checkbox" } });
-			allRow.appendText(` Apply to all ${here.length} visits here`);
-		}
 
 		saveBtn = this.pwButtons(picker, async () => {
 			const items = allBox?.checked ? here : [c];

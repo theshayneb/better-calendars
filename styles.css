@@ -455,3 +455,20 @@ textarea.bc-ci-input {
 .bc-rv-buttons button.mod-cta {
 	flex: 2;
 }
+
+.bc-rv-visits {
+	margin: 0 0 var(--size-4-2) 28px;
+	padding-left: var(--size-4-3);
+	max-height: 180px;
+	overflow-y: auto;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.bc-rv-has-daily {
+	color: var(--text-success);
+}
+
+.bc-rv-visit-shout {
+	font-style: italic;
+}

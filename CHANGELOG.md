@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.3] - 2026-11-11
+
+- Swarm history review: ticking "Apply to all N visits here" now lists those visits (date, time, your note) and whether each day has a daily note, and the daily note checkbox reads "Add to the daily notes of all N visits", saying how many days have no daily note yet (you're asked about those when you save).
+
 ## [1.2.2] - 2026-11-11
 
 - Swarm history review: new "Later" button. It moves on without recording anything; the check-in comes back at the end of this session and the next time you open the review.
