@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, TFile } from "obsidian";
+import { AbstractInputSuggest, App, FuzzySuggestModal, TFile } from "obsidian";
 import type { BetterCalendarsSettings } from "../settings";
 import {
 	FsqPlace,
@@ -9,7 +9,7 @@ import {
 	linkKey,
 	normalizeTag,
 } from "./logic";
-import { propertyValues } from "./place-notes";
+import { RATING, propertyValues } from "./place-notes";
 
 /** Suggests values already used in a property (e.g. Projects). */
 class ValueSuggest extends AbstractInputSuggest<string> {
@@ -333,4 +333,97 @@ export function noteNameField(container: HTMLElement, suggested: string): () => 
 	input.addEventListener("input", update);
 	update();
 	return () => cleanFileName(input.value) || suggested;
+}
+
+/**
+ * "Rating": the values you already use in Rating properties (most used
+ * first) as chips, plus "+ new". Starts on the note's current rating.
+ * Returns a getter: the chosen rating, or "" for none (nothing is removed).
+ */
+export function ratingField(container: HTMLElement, app: App, current: string): () => string {
+	const box = container.createDiv({ cls: "bc-ci-section" });
+	box.createEl("p", { cls: "bc-ci-label", text: "Rating" });
+	const row = box.createDiv({ cls: "bc-ci-chips" });
+	const values = propertyValues(app, RATING);
+	if (current && !values.includes(current)) values.unshift(current);
+	let chosen = current;
+	const render = () => {
+		row.empty();
+		for (const v of values) {
+			chip(row, v, v === chosen, () => {
+				chosen = chosen === v ? "" : v;
+				render();
+			});
+		}
+		const add = row.createEl("button", { cls: "bc-ci-chip bc-ci-chip-new", text: "+ new" });
+		add.onclick = () => {
+			const input = createEl("input", {
+				cls: "bc-ci-new-tag",
+				attr: { placeholder: "New rating", "aria-label": "New rating" },
+			});
+			let finished = false;
+			const done = () => {
+				if (finished) return;
+				finished = true;
+				const v = input.value.trim();
+				if (v) {
+					if (!values.includes(v)) values.push(v);
+					chosen = v;
+				}
+				render();
+			};
+			input.addEventListener("keydown", (ev) => {
+				if (ev.key === "Enter") done();
+				if (ev.key === "Escape") {
+					finished = true;
+					render();
+				}
+			});
+			input.addEventListener("blur", done);
+			add.replaceWith(input);
+			window.setTimeout(() => input.focus(), 20);
+		};
+	};
+	render();
+	return () => chosen;
+}
+
+/** The note's current Rating, as text ("" when none). */
+export function currentRating(app: App, file: TFile | null): string {
+	if (!file) return "";
+	const v: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.[RATING];
+	if (typeof v === "string") return v.trim();
+	if (typeof v === "number" || typeof v === "boolean") return String(v);
+	if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string").join(", ");
+	return "";
+}
+
+/** Search all notes by name and pick one (to link a place to a note named differently). */
+export class NoteSearchModal extends FuzzySuggestModal<TFile> {
+	constructor(
+		app: App,
+		private readonly pwPlacesFolder: string,
+		private readonly pwOnPick: (file: TFile) => void
+	) {
+		super(app);
+		this.setPlaceholder("Find the note for this place");
+	}
+
+	getItems(): TFile[] {
+		const folder = this.pwPlacesFolder.replace(/^\/+|\/+$/g, "");
+		const files = this.app.vault.getMarkdownFiles();
+		// Notes in the places folder first.
+		return [
+			...files.filter((f) => folder && f.path.startsWith(`${folder}/`)),
+			...files.filter((f) => !folder || !f.path.startsWith(`${folder}/`)),
+		];
+	}
+
+	getItemText(file: TFile): string {
+		return file.path.replace(/\.md$/, "");
+	}
+
+	onChooseItem(file: TFile): void {
+		this.pwOnPick(file);
+	}
 }

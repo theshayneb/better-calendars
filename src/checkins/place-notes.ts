@@ -109,7 +109,14 @@ export interface CheckinWrite {
 	visit: string;
 	/** File name for a new note, as edited by the owner (cleaned before use). */
 	noteName?: string;
+	/** A note the owner picked to link this place to (instead of the matching one). */
+	target?: TFile | null;
+	/** Rating chosen at check-in or review; written only when not empty. */
+	rating?: string;
 }
+
+/** Frontmatter key for the owner's own rating of a place (e.g. 🩷). */
+export const RATING = "Rating";
 
 /** The name a new note for this place would get. */
 export function suggestedNoteName(app: App, settings: BetterCalendarsSettings, place: FsqPlace): string {
@@ -128,7 +135,7 @@ export async function recordVisit(
 	w: CheckinWrite
 ): Promise<TFile> {
 	const recent = justCreated.get(w.place.id);
-	const recentFile = recent ? app.vault.getFileByPath(recent) : null;
+	const recentFile = w.target ?? (recent ? app.vault.getFileByPath(recent) : null);
 	const match = recentFile ? null : matchPlaceNote(w.place, listPlaceNotes(app, settings));
 	const existing = recentFile ?? (match ? app.vault.getFileByPath(match.path) : null);
 	if (existing) {
@@ -168,6 +175,8 @@ function applyVisit(fm: Record<string, unknown>, settings: BetterCalendarsSettin
 		links.push(googleMapsUrl(place));
 	}
 	fm[LINK] = links;
+	const rating = (w.rating ?? "").trim();
+	if (rating) fm[RATING] = /^\d+(\.\d+)?$/.test(rating) ? Number(rating) : rating;
 	// The same visit (same date and time) is never recorded twice.
 	const visits = asList(fm[VISITS]);
 	const stamp = w.visit.slice(0, 16);

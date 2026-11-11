@@ -115,6 +115,7 @@ fsq: 4b8f9c2af964a520a6f533e3
 - An existing note with the same name and coordinates within about 150 m (or the same `fsq`) is used instead of creating a new one. Existing values are kept: only empty properties are filled, tags and links are added to, and `Visits` only grows.
 - For a new place you can change the **Note name** before saving; characters Windows and Obsidian don't allow are removed. Renaming a place note later is fine too: places are recognised by `fsq`, not by name.
 - `Projects` is yours to fill in: the check-in screen suggests values you've already used in `Projects` anywhere in the vault.
+- **Rating**: the check-in and review screens offer the ratings you already use in `Rating` properties (e.g. 🩷) as chips, plus "+ new". Your choice is saved to the place note; leaving it empty keeps any rating the note has.
 - `fsq` is the Foursquare place ID, used to recognise the place and to post to Swarm. It's hidden in the properties panel ("Hide fsq property").
 
 **Daily note.** The place is added to the daily note's `Places` property (a list of links, once per day). If today's daily note doesn't exist yet, you're asked whether to create it.
@@ -127,7 +128,7 @@ Run **Catch up on Swarm history** (command palette, or the "Catch up" button in 
 
 For each check-in you see the date and time (the place's local time), the place, its address, suggested tags and your original note, plus your progress ("1,204 of 6,830"). Choose:
 
-- **Create or link place note**: records the visit in the place's note, like a check-in.
+- **Create or link place note**: records the visit in the place's note, like a check-in. If the place's note is named differently, use **Link to an existing note…** to pick it; it's found automatically after that.
 - **Add to daily note YYYY-MM-DD**: adds the place to that day's `Places`. On when the daily note exists; when it doesn't, a button creates it from your template.
 - **Add the name as plain text (not a link)**: optional, under the daily note box, for when you want the name in `Places` without a link.
 - **Apply to all N visits here**: saves every visit to this place at once. If some of those days have no daily note, you're asked whether to create them.

@@ -2,6 +2,7 @@
 import "./dom";
 import { describe, expect, it } from "vitest";
 import { visibleText } from "./dom";
+import { TFile, opened } from "obsidian";
 import { DEFAULT_SETTINGS } from "../src/settings";
 import { ReviewModal } from "../src/checkins/review-modal";
 import type { SwarmCheckin } from "../src/checkins/history-logic";
@@ -22,14 +23,27 @@ function visit(id: string, isoUtc: string, shout = ""): SwarmCheckin {
 	return { id, at: Date.parse(isoUtc), tz: -240, shout, place };
 }
 
-function screen(history: SwarmCheckin[]) {
+function screen(history: SwarmCheckin[], notes: Record<string, Record<string, unknown>> = {}) {
+	const files = Object.keys(notes).map((path) =>
+		Object.assign(new TFile(), { path, basename: path.split("/").pop()!.replace(/\.md$/, "") })
+	);
+	const byPath = new Map(files.map((f) => [f.path, f]));
 	const app = {
-		vault: { getMarkdownFiles: () => [], getFileByPath: () => null, getAbstractFileByPath: () => null },
-		metadataCache: { getFileCache: () => null },
+		vault: {
+			getMarkdownFiles: () => files,
+			getFileByPath: (p: string) => byPath.get(p) ?? null,
+			getAbstractFileByPath: (p: string) => byPath.get(p) ?? null,
+		},
+		metadataCache: { getFileCache: (f: TFile) => (notes[f.path] ? { frontmatter: notes[f.path] } : null) },
 	};
 	const plugin = {
 		app,
-		settings: { ...DEFAULT_SETTINGS, swarmToken: "token", categoryTags: { "cat-tea": { name: "Tea Room", tag: "tea" } } },
+		settings: {
+			...DEFAULT_SETTINGS,
+			placesFolder: "Travel",
+			swarmToken: "token",
+			categoryTags: { "cat-tea": { name: "Tea Room", tag: "tea" } },
+		},
 		saveSettings: async () => {},
 	};
 	const modal = new ReviewModal(plugin as never);
@@ -84,6 +98,50 @@ describe("the history review screen", () => {
 		input.value = "Prince Tea: House?";
 		input.dispatchEvent(new Event("input"));
 		expect(visibleText(el)).toContain('Will be saved as "Prince Tea House"');
+	});
+
+	it("offers the ratings already used in the vault, starting on the note's own", () => {
+		const el = screen([visit("a", "2018-02-11T23:05:00Z")], {
+			"Travel/Prince Tea House.md": { Geolink: "40.7222, -73.8439", Rating: "🩷🩷" },
+			"Travel/A.md": { Rating: "🩷" },
+			"Travel/B.md": { Rating: "🩷" },
+		});
+		const label = Array.from(el.querySelectorAll("p")).find((p) => p.textContent === "Rating")!;
+		const chips = Array.from(label.nextElementSibling!.querySelectorAll("button")).map((b) => [
+			b.textContent,
+			b.getAttribute("aria-pressed"),
+		]);
+		expect(chips).toEqual([
+			["🩷", "false"],
+			["🩷🩷", "true"],
+			["+ new", null],
+		]);
+		expect(visibleText(el)).toContain("Note exists: Prince Tea House");
+	});
+
+	it("can link the visit to a note found by search", () => {
+		opened.length = 0;
+		const el = screen([visit("a", "2018-02-11T23:05:00Z")], {
+			"Other/Prince Tea (Forest Hills).md": {},
+			"Travel/Something.md": {},
+		});
+		expect(visibleText(el)).toContain("No note yet");
+		expect(visibleText(el)).toContain("Note name");
+		const find = Array.from(el.querySelectorAll("button")).find((b) =>
+			b.textContent?.startsWith("Link to an existing note")
+		)!;
+		find.click();
+		const search = opened[opened.length - 1] as unknown as {
+			getItems(): TFile[];
+			onChooseItem(f: TFile): void;
+		};
+		// Places folder first.
+		expect(search.getItems().map((f) => f.path)).toEqual(["Travel/Something.md", "Other/Prince Tea (Forest Hills).md"]);
+		search.onChooseItem(search.getItems()[1]!);
+		const text = visibleText(el);
+		expect(text).toContain("Linking to: Prince Tea (Forest Hills)");
+		expect(text).not.toContain("Note name");
+		expect(text).toContain("Undo");
 	});
 
 	it("has Later, Skip and Save and next", () => {

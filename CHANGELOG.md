@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.0] - 2026-11-11
+
+- Rating: the check-in and history review screens have a Rating field with the ratings you already use in your notes' `Rating` property (most used first) as chips, plus "+ new". It starts on the note's current rating and is saved to the place note; leaving it empty never removes a rating.
+- Swarm history review: "Link to an existing note…" / "Link to a different note…" searches all your notes (places folder first), so a visit can go to a note that's named differently. That note then gets the place's Foursquare id, so the next visit finds it by itself. "Undo" goes back to the automatic match.
+- The section headers (Note name, Tags, Projects, Rating) are bigger and bold.
+
 ## [1.2.7] - 2026-11-11
 
 - Fixed different locations of a chain (e.g. Chili's in Queens and Chili's in Reno) ending up in one place note. A note with the same name but no coordinates is now only used when its Address matches the place's street (or postcode and city), and a note the plugin has just updated is never mistaken for an empty one while Obsidian is still re-reading it.

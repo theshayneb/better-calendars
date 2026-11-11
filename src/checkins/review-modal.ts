@@ -13,7 +13,7 @@ import {
 } from "./history-logic";
 import { PlaceNoteInfo, cleanFileName, matchPlaceNote, visitEntry } from "./logic";
 import { addPlaceToDailyNote, listPlaceNotes, recordVisit, suggestedNoteName } from "./place-notes";
-import { TagPicker, noteNameField } from "./tag-picker";
+import { NoteSearchModal, TagPicker, currentRating, noteNameField, ratingField } from "./tag-picker";
 
 /** Progress is saved to the (synced) settings every this many check-ins, and on close. */
 const SAVE_EVERY = 10;
@@ -21,6 +21,8 @@ const SAVE_EVERY = 10;
 /** "Catch up on Swarm history": one past check-in at a time, newest first. */
 export class ReviewModal extends Modal {
 	private pwHistory: SwarmCheckin[] = [];
+	/** A note picked with "Link to a different note…", for the check-in on screen. */
+	private pwPicked: { checkinId: string; file: TFile } | null = null;
 	private pwPending: SwarmCheckin[] = [];
 	private pwTotal = 0;
 	private pwNotes: PlaceNoteInfo[] = [];
@@ -156,21 +158,43 @@ export class ReviewModal extends Modal {
 			cls: "bc-ci-sub",
 			text: [place.categories[0]?.name, place.address].filter(Boolean).join(" · "),
 		});
-		const note = matchPlaceNote(place, this.pwNotes);
-		contentEl.createEl("p", {
+		const picked = this.pwPicked?.checkinId === c.id ? this.pwPicked.file : null;
+		const note = picked ? null : matchPlaceNote(place, this.pwNotes);
+		const noteFile = picked ?? (note ? this.app.vault.getFileByPath(note.path) : null);
+		const noteRow = contentEl.createDiv({ cls: "bc-rv-note-row" });
+		noteRow.createSpan({
 			cls: "bc-ci-sub",
-			text: note
-				? `Note exists · ${note.visits} visit${note.visits === 1 ? "" : "s"} recorded`
-				: "No note yet",
+			text: picked
+				? `Linking to: ${picked.basename}`
+				: note
+					? `Note exists: ${note.basename} · ${note.visits} visit${note.visits === 1 ? "" : "s"} recorded`
+					: "No note yet",
 		});
+		const findBtn = noteRow.createEl("button", {
+			cls: "bc-rv-find",
+			text: noteFile ? "Link to a different note…" : "Link to an existing note…",
+		});
+		findBtn.onclick = () => {
+			new NoteSearchModal(this.app, settings.placesFolder, (file) => {
+				this.pwPicked = { checkinId: c.id, file };
+				this.pwShow(c);
+			}).open();
+		};
+		if (picked) {
+			const undo = noteRow.createEl("button", { cls: "bc-rv-find", text: "Undo" });
+			undo.onclick = () => {
+				this.pwPicked = null;
+				this.pwShow(c);
+			};
+		}
 		if (c.shout) contentEl.createEl("blockquote", { cls: "bc-rv-shout", text: c.shout });
-		const noteName = note ? null : noteNameField(contentEl, suggestedNoteName(this.app, settings, place));
+		const noteName = noteFile ? null : noteNameField(contentEl, suggestedNoteName(this.app, settings, place));
 
 		let saveBtn: HTMLButtonElement | null = null;
-		const noteFile = note ? this.app.vault.getFileByPath(note.path) : null;
 		const picker = new TagPicker(this.app, settings, contentEl, place, noteFile, () => {
 			if (saveBtn) saveBtn.disabled = linkBox.checked && !picker.ready();
 		});
+		const rating = ratingField(contentEl, this.app, currentRating(this.app, noteFile));
 
 		// Checkboxes
 		const linkRow = contentEl.createEl("label", { cls: "bc-ci-check" });
@@ -269,6 +293,8 @@ export class ReviewModal extends Modal {
 				tags: choice.tags,
 				projects: choice.projects,
 				existingNote: noteFile,
+				target: picked,
+				rating: rating(),
 				placeName: place.name,
 				noteName: noteName ? noteName() : undefined,
 			});
@@ -347,6 +373,8 @@ export class ReviewModal extends Modal {
 			existingNote: TFile | null;
 			placeName: string;
 			noteName: string | undefined;
+			target: TFile | null;
+			rating: string;
 		}
 	): Promise<boolean> {
 		const app: App = this.app;
@@ -390,6 +418,8 @@ export class ReviewModal extends Modal {
 					projects: o.projects,
 					visit: visitEntry(localStamp(item), item.shout),
 					noteName: o.noteName,
+					target: o.target,
+					rating: o.rating,
 				});
 			} else if (o.daily) {
 				placeNote = o.existingNote ?? o.noteName ?? cleanFileName(o.placeName);

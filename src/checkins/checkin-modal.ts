@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Platform, moment } from "obsidian";
-import { TagPicker, noteNameField } from "./tag-picker";
+import { TagPicker, currentRating, noteNameField, ratingField } from "./tag-picker";
 import type BetterCalendarsPlugin from "../main";
 import { createDailyNote, dailyNoteConfig, getDailyNote, today } from "../daily/daily-notes";
 import { FoursquareError, searchPlaces } from "./foursquare";
@@ -255,6 +255,7 @@ export class CheckinModal extends Modal {
 		const picker = new TagPicker(this.app, settings, contentEl, place, noteFile, () => {
 			if (checkBtn) checkBtn.disabled = !picker.ready();
 		});
+		const rating = ratingField(contentEl, this.app, currentRating(this.app, noteFile));
 
 		const noteBox = contentEl.createDiv({ cls: "bc-ci-section" });
 		noteBox.createEl("label", {
@@ -287,6 +288,7 @@ export class CheckinModal extends Modal {
 				tags: choice.tags,
 				projects: choice.projects,
 				noteName: noteName ? noteName() : undefined,
+				rating: rating(),
 				note: noteInput.value,
 				swarm: swarmBox.checked,
 			});
@@ -295,7 +297,14 @@ export class CheckinModal extends Modal {
 
 	private async pwCheckIn(
 		place: FsqPlace,
-		c: { tags: string[]; projects: string[]; noteName: string | undefined; note: string; swarm: boolean }
+		c: {
+			tags: string[];
+			projects: string[];
+			noteName: string | undefined;
+			rating: string;
+			note: string;
+			swarm: boolean;
+		}
 	): Promise<void> {
 		const plugin = this.plugin;
 		const settings = plugin.settings;
@@ -329,6 +338,7 @@ export class CheckinModal extends Modal {
 				projects: c.projects,
 				visit,
 				noteName: c.noteName,
+				rating: c.rating,
 			});
 			done.push(`visit added to ${file.basename}`);
 

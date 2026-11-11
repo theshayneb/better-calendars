@@ -488,3 +488,26 @@ textarea.bc-ci-input {
 .bc-ci-hint:empty {
 	display: none;
 }
+
+/* Section headers in the check-in and review screens: Note name, Tags, Projects, Rating */
+.bc-ci-modal .bc-ci-label {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-bold);
+	color: var(--text-normal);
+	margin-top: var(--size-4-3);
+	margin-bottom: var(--size-4-2);
+}
+
+.bc-rv-note-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin: var(--size-4-1) 0;
+}
+
+.bc-rv-find {
+	font-size: var(--font-ui-small);
+	padding: 0 var(--size-4-3);
+	min-height: 32px;
+}

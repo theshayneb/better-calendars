@@ -48,3 +48,19 @@ export class AbstractInputSuggest {
 	close() {}
 }
 export const Platform = { isMobile: false, isAndroidApp: false, isIosApp: false };
+export class FuzzySuggestModal<T> extends Modal {
+	placeholder = "";
+	setPlaceholder(p: string) {
+		this.placeholder = p;
+	}
+	getItems(): T[] {
+		return [];
+	}
+}
+/** The last modal opened through `open()` in a test. */
+export const opened: Modal[] = [];
+const originalOpen = Modal.prototype.open;
+Modal.prototype.open = function (this: Modal) {
+	opened.push(this);
+	originalOpen.call(this);
+};

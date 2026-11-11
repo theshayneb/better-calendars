@@ -173,6 +173,36 @@ describe("recordVisit with your own note name", () => {
 	});
 });
 
+describe("linking to a note you picked, with a rating", () => {
+	it("writes the visit, the rating and the place's id to the picked note", async () => {
+		const { app, notes, created } = fakeApp({
+			"Travel/Prince Tea House.md": { fsq: "other-place", Geolink: "40.0, -70.0" },
+			"Other/Prince Tea (FH).md": { Rating: "🩷" },
+		});
+		const target = (app as { vault: { getFileByPath(p: string): TFile } }).vault.getFileByPath("Other/Prince Tea (FH).md");
+		const file = await recordVisit(app, settings, {
+			place: prince,
+			tags: ["place"],
+			projects: [],
+			visit: "2018-02-11 19:05",
+			target,
+			rating: "🩷🩷",
+		});
+		expect(file.path).toBe("Other/Prince Tea (FH).md");
+		expect(Object.keys(created)).toEqual([]);
+		const fm = notes["Other/Prince Tea (FH).md"]!;
+		expect(fm.Rating).toBe("🩷🩷");
+		expect(fm.fsq).toBe(prince.id);
+		expect(fm.Visits).toEqual(["2018-02-11 19:05"]);
+	});
+
+	it("leaves an existing rating alone when none is chosen", async () => {
+		const { app, notes } = fakeApp({ "Travel/Prince Tea House.md": { fsq: prince.id, Rating: "🩷" } });
+		await recordVisit(app, settings, { place: prince, tags: [], projects: [], visit: "2018-02-11 19:05", rating: "" });
+		expect(notes["Travel/Prince Tea House.md"]!.Rating).toBe("🩷");
+	});
+});
+
 describe("chains", () => {
 	const chilis = (id: string, lat: number, lng: number, street: string, address: string) => ({
 		...prince,
