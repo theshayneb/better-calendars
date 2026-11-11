@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.3] - 2026-11-11
+
+- New link `obsidian://better-calendars-checkin` opens the check-in screen, so you can start a check-in from Tasker, a home-screen shortcut or any other app. Add `?vault=Your%20Vault` to pick a vault.
+
 ## [1.1.2] - 2026-11-11
 
 - Added `nyc` to the tags you can choose when checking in. It's added to your tag list once; if you remove it under "Your tags", it stays removed.

@@ -82,6 +82,7 @@ Check in to places from Obsidian, Swarm/Foursquare style. Each check-in records 
 **Check in** (ribbon map-pin icon, or the "Check in" command):
 
 - **On your phone**, Better Calendars reads your location (Obsidian Mobile 1.11 or later; allow location when Android asks) and lists the places around you, nearest first, with their category and how often you've been there. The search box finds places by name. "Test location (GPS)" shows whether location works on a device.
+- **From anywhere**: the link `obsidian://better-calendars-checkin` opens the check-in screen, e.g. from Tasker (Net → Browse URL) or a home-screen shortcut. Add `?vault=Your%20Vault` to choose a vault.
 - **On desktop** there is no GPS: search places by name. Results are biased to where you last checked in.
 - Pick a place, then choose tags, add projects and an optional note (which becomes your Swarm shout), and press **Check in**.
 

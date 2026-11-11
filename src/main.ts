@@ -94,6 +94,10 @@ export default class BetterCalendarsPlugin extends Plugin {
 		this.registerObsidianProtocolHandler("better-calendars-swarm", (params) => {
 			void finishSwarmConnect(this, params);
 		});
+		// obsidian://better-calendars-checkin opens the check-in screen (for Tasker, shortcuts, links).
+		this.registerObsidianProtocolHandler("better-calendars-checkin", () => {
+			this.app.workspace.onLayoutReady(() => openCheckin(this));
+		});
 
 		this.app.workspace.onLayoutReady(() => {
 			if (this.settings.openOnStartup) void this.activateView(false);
