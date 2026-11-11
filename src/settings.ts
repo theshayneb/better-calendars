@@ -76,6 +76,8 @@ export interface BetterCalendarsSettings {
 	hideFsq: boolean;
 	/** The tags offered as chips. */
 	checkinTags: string[];
+	/** Set once "nyc" has been added to checkinTags, so removing it sticks. */
+	nycTagAdded: boolean;
 	/** Tags every place note gets. */
 	alwaysTags: string[];
 	/** A tag that brings others along, e.g. pizza -> food. */
@@ -147,7 +149,8 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	geolinkProperty: "Geolink",
 	dailyPlacesProperty: "Places",
 	hideFsq: true,
-	checkinTags: ["dessert", "pizza", "tea", "food", "shopping", "sight", "museum", "activity", "outdoors"],
+	checkinTags: ["dessert", "pizza", "tea", "food", "shopping", "sight", "museum", "activity", "outdoors", "nyc"],
+	nycTagAdded: true,
 	alwaysTags: ["place"],
 	impliedTags: { pizza: ["food"], tea: ["food"], dessert: ["food"] },
 	categoryTags: {},

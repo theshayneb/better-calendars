@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.2] - 2026-11-11
+
+- Added `nyc` to the tags you can choose when checking in. It's added to your tag list once; if you remove it under "Your tags", it stays removed.
+
 ## [1.1.1] - 2026-11-11
 
 - Check-in settings are clearer: "Place search" needs a Service API Key (developer console → your project → Service API Keys), "Swarm" needs the Client ID and Client Secret. A warning shows when the Service API key field holds the Client Secret, and the check-in screen says so too.

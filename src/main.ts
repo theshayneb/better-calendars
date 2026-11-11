@@ -132,7 +132,17 @@ export default class BetterCalendarsPlugin extends Plugin {
 			categoryTags: { ...(loaded.categoryTags ?? {}) },
 			swarmQueue: [...(loaded.swarmQueue ?? [])],
 			swarmPostedIds: [...(loaded.swarmPostedIds ?? [])],
+			nycTagAdded: true,
 		};
+		this.addNycTagOnce(loaded);
+	}
+
+	/** Add "nyc" to an existing tag list once (1.1.2); removing it later sticks. */
+	private addNycTagOnce(loaded: Partial<BetterCalendarsSettings>): void {
+		if (loaded.nycTagAdded || !loaded.checkinTags) return;
+		if (!this.settings.checkinTags.some((t) => t.toLowerCase() === "nyc")) {
+			this.settings.checkinTags.push("nyc");
+		}
 	}
 
 	async saveSettings(): Promise<void> {

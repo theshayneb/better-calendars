@@ -34,6 +34,7 @@ npm run build
 - Title changes: `settings.noteNames[eventId]` = {name the plugin gave the file, title it was made from}; `followTitle` swaps old title for new in the file name only if the file still has that name. Pre-1.0.12 notes get their current name/title as the starting record (no rename on first sight).
 - Check-ins (`src/checkins/`): Places API search (`places-api.foursquare.com`, header `X-Places-Api-Version: 2025-06-17`, API key as Bearer), Swarm via v2 (`api.foursquare.com/v2`, OAuth code flow with redirect `obsidian://better-calendars-swarm`, token as Bearer). Pure logic in `logic.ts`; notes written in `place-notes.ts` (match by `fsq`, else same name within 150 m; only fill empty properties; `Visits` append-only). The owner's place notes use `Geolink`, `Link` as a list, tags `place` + `food`, and `Projects`/`Rating` they fill themselves.
 - Swarm posts that fail transiently go to `settings.swarmQueue` and are retried only by the device that queued them (`deviceId` in local storage). Swarm ids posted from Obsidian go to `swarmPostedIds` (for the history review in 1.2.0).
+- The owner's check-in tags include `nyc` (they tag everything local to NYC); `nycTagAdded` makes the one-time addition stick if they remove it.
 - The `event_id` property is hidden with the body class `bc-hide-event-id` (setting `hideEventId`).
 - `settings.imported` remembers which events already got a note, so deleted notes aren't recreated.
 - Don't give subclasses of Obsidian classes members that may clash with internals; use a `pw` prefix.
