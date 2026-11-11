@@ -173,6 +173,36 @@ describe("recordVisit with your own note name", () => {
 	});
 });
 
+describe("chains", () => {
+	const chilis = (id: string, lat: number, lng: number, street: string, address: string) => ({
+		...prince,
+		id,
+		name: "Chili's",
+		lat,
+		lng,
+		street,
+		address,
+		website: "",
+	});
+	const queens = chilis("chilis-queens", 40.7108, -73.8659, "80-40 Cooper Ave", "80-40 Cooper Ave, Glendale, NY 11385");
+	const reno = chilis("chilis-reno", 39.4708, -119.7866, "5980 S Virginia St", "5980 S Virginia St, Reno, NV 89502");
+
+	it("gives each location its own note, even right after adopting one", async () => {
+		// An existing note for the Queens Chili's, written by hand: name and address only.
+		const { app, notes, created } = fakeApp({
+			"Travel/Chili's.md": { Address: "80-40 Cooper Ave, Glendale, NY 11385" },
+		});
+		const first = await recordVisit(app, settings, { place: queens, tags: [], projects: [], visit: "2019-01-01 12:00" });
+		expect(first.path).toBe("Travel/Chili's.md");
+		// The fake metadata cache shows the note as it was (no fsq, no Geolink), like Obsidian
+		// right after a write. Reno must still not land in it.
+		notes["Travel/Chili's.md"] = { Address: "80-40 Cooper Ave, Glendale, NY 11385" };
+		const second = await recordVisit(app, settings, { place: reno, tags: [], projects: [], visit: "2019-06-01 18:00" });
+		expect(second.path).toBe("Travel/Chili's (S Virginia St).md");
+		expect(Object.keys(created)).toEqual(["Travel/Chili's (S Virginia St).md"]);
+	});
+});
+
 describe("recordVisit for past check-ins", () => {
 	it("doesn't record the same visit twice", async () => {
 		const { app, notes } = fakeApp({ "Travel/Prince Tea House.md": { fsq: prince.id, Visits: ["2017-09-13 14:52 · tea"] } });

@@ -42,6 +42,7 @@ npm run build
 - Review buttons: Later (session-only `pwLater`, not saved), Skip (`settings.swarmSkipped`, undone by "Bring skipped back"), Save and next (`swarmReviewed`). The queue excludes reviewed + skipped + posted-from-Obsidian.
 - `getDailyNote` falls back to a note with the date's name anywhere (daily folder first) via a name index cleared on vault create/delete/rename; the owner's older daily notes aren't all at the configured path.
 - `fsq` may be a list: Swarm's old venue ids and Places API ids differ for some places. Matching: id, else same name within 150 m (any id), else the only blank same-name note.
+- Chains share names: a same-name note without coordinates or fsq is only adopted when its Address matches (`sameAddress`). `recentWrites` in place-notes.ts overlays what was just written (fsq, Geolink, Address) so a just-adopted note doesn't look blank while the metadata cache catches up.
 - `ask()` resolves null when closed with X; callers treat that as cancel and write nothing.
 - The tag chips and Projects field are one component, `TagPicker` (`tag-picker.ts`), used by both the check-in and the review screens. Category tags are looked up by id, then by category name.
 - The owner's check-in tags include `nyc` (they tag everything local to NYC); `nycTagAdded` makes the one-time addition stick if they remove it.

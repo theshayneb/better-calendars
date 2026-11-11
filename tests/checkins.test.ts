@@ -36,6 +36,7 @@ const note = (over: Partial<PlaceNoteInfo> = {}): PlaceNoteInfo => ({
 	basename: "Prince Tea House",
 	fsq: [],
 	location: { lat: 40.72217743090846, lng: -73.84394712231544 },
+	address: "15 Station Square; Forest Hills, NY 11375",
 	visits: 0,
 	...over,
 });
@@ -81,10 +82,44 @@ describe("matchPlaceNote", () => {
 		expect(matchPlaceNote(place(), [note({ location: null, fsq: ["other-id"] })])).toBeNull();
 	});
 
-	it("adopts a single same-name note without coordinates", () => {
+	it("adopts a same-name note without coordinates only when its address matches", () => {
 		const n = note({ location: null });
 		expect(matchPlaceNote(place(), [n])).toBe(n);
 		expect(matchPlaceNote(place(), [n, note({ path: "b.md", location: null })])).toBeNull();
+		expect(matchPlaceNote(place(), [note({ location: null, address: "" })])).toBeNull();
+		expect(matchPlaceNote(place(), [note({ location: null, address: "1 Main St, Reno, NV 89501" })])).toBeNull();
+	});
+
+	it("keeps chain locations apart (Chili's in Queens is not Chili's in Reno)", () => {
+		const queens = place({
+			id: "chilis-queens",
+			name: "Chili's",
+			lat: 40.7108,
+			lng: -73.8659,
+			street: "80-40 Cooper Ave",
+			address: "80-40 Cooper Ave, Glendale, NY 11385",
+		});
+		const reno = place({
+			id: "chilis-reno",
+			name: "Chili's",
+			lat: 39.4708,
+			lng: -119.7866,
+			street: "5980 S Virginia St",
+			address: "5980 S Virginia St, Reno, NV 89502",
+		});
+		const queensNote = note({
+			path: "Travel/Chili's.md",
+			basename: "Chili's",
+			fsq: ["chilis-queens"],
+			location: { lat: 40.7108, lng: -73.8659 },
+			address: "80-40 Cooper Ave, Glendale, NY 11385",
+		});
+		expect(matchPlaceNote(queens, [queensNote])).toBe(queensNote);
+		expect(matchPlaceNote(reno, [queensNote])).toBeNull();
+		// A bare "Chili's" note (no coordinates, id or address) is nobody's.
+		const bare = note({ path: "Travel/Chili's.md", basename: "Chili's", location: null, address: "" });
+		expect(matchPlaceNote(queens, [bare])).toBeNull();
+		expect(matchPlaceNote(reno, [bare])).toBeNull();
 	});
 });
 

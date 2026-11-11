@@ -4,6 +4,7 @@ import { ensureFolder, joinPath } from "../util/vault";
 import {
 	cleanFileName,
 	FsqPlace,
+	LatLng,
 	PlaceNoteInfo,
 	addMissing,
 	asList,
@@ -44,11 +45,14 @@ export function listPlaceNotes(app: App, settings: BetterCalendarsSettings): Pla
 		const location = parseLatLng(fm[geo]);
 		const fsq = asList(fm[FM_FSQ]);
 		if (!inFolder(file, folder) && !location && fsq.length === 0) continue;
+		// What we just wrote counts even before Obsidian has re-read the note.
+		const recent = recentWrites.get(file.path);
 		out.push({
 			path: file.path,
 			basename: file.basename,
-			fsq,
-			location,
+			fsq: recent ? [...new Set([...fsq, ...recent.fsq])] : fsq,
+			location: location ?? recent?.location ?? null,
+			address: asList(fm[ADDRESS]).join(", ") || recent?.address || "",
 			visits: asList(fm[VISITS]).length,
 		});
 	}
@@ -78,6 +82,22 @@ export function propertyValues(app: App, property: string): string[] {
  * the note and would create a duplicate.
  */
 const justCreated = new Map<string, string>();
+
+/**
+ * The ids, coordinates and address the plugin last wrote to a note, by
+ * path. Used by listPlaceNotes until Obsidian has re-read the note, so a
+ * note adopted a moment ago doesn't look blank and get adopted by another
+ * place with the same name.
+ */
+const recentWrites = new Map<string, { fsq: string[]; location: LatLng | null; address: string }>();
+
+function remember(path: string, fm: Record<string, unknown>, settings: BetterCalendarsSettings): void {
+	recentWrites.set(path, {
+		fsq: asList(fm[FM_FSQ]),
+		location: parseLatLng(fm[settings.geolinkProperty.trim() || "Geolink"]),
+		address: asList(fm[ADDRESS]).join(", "),
+	});
+}
 
 export interface CheckinWrite {
 	place: FsqPlace;
@@ -114,6 +134,7 @@ export async function recordVisit(
 	if (existing) {
 		await app.fileManager.processFrontMatter(existing, (fm: Record<string, unknown>) => {
 			applyVisit(fm, settings, w);
+			remember(existing.path, fm, settings);
 		});
 		return existing;
 	}
@@ -129,6 +150,7 @@ export async function recordVisit(
 	// Written in one go (not empty first), so Templater's new-file trigger has nothing to fill in.
 	const file = await app.vault.create(joinPath(folder, `${name}.md`), `---\n${stringifyYaml(fm)}---\n`);
 	justCreated.set(w.place.id, file.path);
+	remember(file.path, fm, settings);
 	return file;
 }
 

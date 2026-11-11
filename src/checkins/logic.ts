@@ -29,6 +29,8 @@ export interface PlaceNoteInfo {
 	/** Foursquare ids (Swarm's old ids and the Places API's can differ). */
 	fsq: string[];
 	location: LatLng | null;
+	/** The note's Address property ("" when it has none). */
+	address: string;
 	visits: number;
 }
 
@@ -89,8 +91,23 @@ export function matchPlaceNote(place: FsqPlace, notes: PlaceNoteInfo[]): PlaceNo
 		.filter((n) => n.location && distanceMetres(n.location, place) <= SAME_PLACE_METRES)
 		.sort((a, b) => distanceMetres(a.location as LatLng, place) - distanceMetres(b.location as LatLng, place));
 	if (near.length > 0) return near[0] ?? null;
-	const blank = candidates.filter((n) => !n.location && n.fsq.length === 0);
+	// A same-name note without coordinates or id is only this place when its
+	// address says so: chains (Chili's, Starbucks) share names across cities.
+	const blank = candidates.filter(
+		(n) => !n.location && n.fsq.length === 0 && sameAddress(n.address, place)
+	);
 	return blank.length === 1 ? (blank[0] ?? null) : null;
+}
+
+/** Whether a note's Address names this place's street (or postcode). */
+export function sameAddress(noteAddress: string, place: FsqPlace): boolean {
+	const note = nameKey(noteAddress);
+	if (!note) return false;
+	const street = nameKey(place.street || place.address.split(",")[0] || "");
+	if (street && note.includes(street)) return true;
+	const postcode = /\b\d{5}\b/.exec(place.address)?.[0];
+	const city = nameKey(place.address.split(",")[1] ?? "");
+	return Boolean(postcode && city && note.includes(postcode) && note.includes(city));
 }
 
 /** "71-22 Austin St" -> "Austin St" (the street without the house number). */
