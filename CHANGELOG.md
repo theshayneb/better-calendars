@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.6] - 2026-11-11
+
+- New "Note name" field when checking in or reviewing a place that has no note yet: the suggested name, which you can change. Characters Windows and Obsidian don't allow (\\ / : * ? " < > | # ^ [ ]) are removed, and the field shows how the name will be saved when you type one.
+- Note names are also kept from starting with a dot, ending with a dot or space, or being a name Windows reserves (CON, NUL, ...).
+
 ## [1.2.5] - 2026-11-11
 
 - Fixed the Swarm history review: "Apply to all N visits here" (and its list of visits) only appeared after pressing "Create … from your template" since 1.2.3. It's shown again whenever a place has more than one visit to review.

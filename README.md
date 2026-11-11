@@ -113,6 +113,7 @@ fsq: 4b8f9c2af964a520a6f533e3
 ```
 
 - An existing note with the same name and coordinates within about 150 m (or the same `fsq`) is used instead of creating a new one. Existing values are kept: only empty properties are filled, tags and links are added to, and `Visits` only grows.
+- For a new place you can change the **Note name** before saving; characters Windows and Obsidian don't allow are removed. Renaming a place note later is fine too: places are recognised by `fsq`, not by name.
 - `Projects` is yours to fill in: the check-in screen suggests values you've already used in `Projects` anywhere in the vault.
 - `fsq` is the Foursquare place ID, used to recognise the place and to post to Swarm. It's hidden in the properties panel ("Hide fsq property").
 
