@@ -128,6 +128,7 @@ For each check-in you see the date and time (the place's local time), the place,
 
 - **Create or link place note**: records the visit in the place's note, like a check-in.
 - **Add to daily note YYYY-MM-DD**: adds the place to that day's `Places`. On when the daily note exists; when it doesn't, a button creates it from your template.
+- **Add the name as plain text (not a link)**: optional, under the daily note box, for when you want the name in `Places` without a link.
 - **Apply to all N visits here**: saves every visit to this place at once. If some of those days have no daily note, you're asked whether to create them.
 
 Then **Save and next**, **Later** (comes back next time, nothing is recorded) or **Skip** (not shown again; "Bring skipped back" in the settings undoes that). Close the review any time; your progress syncs, so you can continue on another device. New check-ins you make in the Swarm app join the queue (pulled by the device with "Import on this device" on); check-ins you made from Obsidian never appear.

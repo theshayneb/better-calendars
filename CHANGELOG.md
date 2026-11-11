@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.4] - 2026-11-11
+
+- Swarm history review: new option under "Add to daily note": "Add the name as plain text (not a link)". Off by default; when ticked, the daily note's `Places` gets the place's name without making it a link.
+
 ## [1.2.3] - 2026-11-11
 
 - Swarm history review: ticking "Apply to all N visits here" now lists those visits (date, time, your note) and whether each day has a daily note, and the daily note checkbox reads "Add to the daily notes of all N visits", saying how many days have no daily note yet (you're asked about those when you save).

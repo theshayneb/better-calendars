@@ -175,6 +175,14 @@ describe("addPlaceToDailyNote", () => {
 		expect(notes["Daily/2026-11-11.md"]).toEqual({ Places: ["[[Prince Tea House]]"] });
 	});
 
+	it("writes the plain name when asked", async () => {
+		const { app, notes } = fakeApp({ "Daily/2017-09-13.md": { Places: ["Riverside Park"] } });
+		const daily = (app as { vault: { getFileByPath(p: string): TFile } }).vault.getFileByPath("Daily/2017-09-13.md");
+		expect(await addPlaceToDailyNote(app, settings, daily, "Prince Tea House", true)).toBe(true);
+		expect(await addPlaceToDailyNote(app, settings, daily, "Prince Tea House")).toBe(false);
+		expect(notes["Daily/2017-09-13.md"]).toEqual({ Places: ["Riverside Park", "Prince Tea House"] });
+	});
+
 	it("links by name when the place has no note", async () => {
 		const { app, notes } = fakeApp({ "Daily/2017-09-13.md": { Places: ["[[Riverside Park]]"] } });
 		const daily = (app as { vault: { getFileByPath(p: string): TFile } }).vault.getFileByPath("Daily/2017-09-13.md");

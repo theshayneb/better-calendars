@@ -155,11 +155,16 @@ export async function addPlaceToDailyNote(
 	settings: BetterCalendarsSettings,
 	daily: TFile,
 	/** The place note, or just the place's name when it has no note. */
-	placeNote: TFile | string
+	placeNote: TFile | string,
+	/** Write the name as plain text instead of a link (by choice). */
+	asText = false
 ): Promise<boolean> {
 	const prop = settings.dailyPlacesProperty.trim() || "Places";
-	const link =
-		typeof placeNote === "string"
+	const link = asText
+		? typeof placeNote === "string"
+			? placeNote
+			: placeNote.basename
+		: typeof placeNote === "string"
 			? `[[${placeNote}]]`
 			: `[[${app.metadataCache.fileToLinktext(placeNote, daily.path, true)}]]`;
 	const basename = typeof placeNote === "string" ? placeNote : placeNote.basename;

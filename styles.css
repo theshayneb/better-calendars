@@ -472,3 +472,9 @@ textarea.bc-ci-input {
 .bc-rv-visit-shout {
 	font-style: italic;
 }
+
+.bc-rv-sub-check {
+	margin-left: 28px;
+	min-height: 36px;
+	font-size: var(--font-ui-small);
+}

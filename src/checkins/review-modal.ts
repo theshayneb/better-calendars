@@ -189,6 +189,11 @@ export class ReviewModal extends Modal {
 			cls: "bc-rv-create-daily",
 			text: `Create ${date} from your template`,
 		});
+		const textRow = contentEl.createEl("label", { cls: "bc-ci-check bc-rv-sub-check" });
+		const textBox = textRow.createEl("input", { attr: { type: "checkbox" } });
+		textRow.appendText(" Add the name as plain text (not a link)");
+		const showTextOption = () => textRow.toggle(dailyBox.checked);
+		dailyBox.addEventListener("change", showTextOption);
 		const here = visitsHere(this.pwPending, place.id);
 		let allBox: HTMLInputElement | null = null;
 		const dayExists = (d: string) => Boolean(getDailyNote(this.app, config, moment(d, "YYYY-MM-DD")));
@@ -214,11 +219,13 @@ export class ReviewModal extends Modal {
 			try {
 				daily = await createDailyNote(this.app, settings, moment(date, "YYYY-MM-DD"));
 				dailyBox.checked = true;
+				showTextOption();
 			} catch (e) {
 				new Notice(`Couldn't create the daily note. ${e instanceof Error ? e.message : String(e)}`);
 			}
 			createDaily.disabled = false;
 			showDaily();
+		showTextOption();
 
 		if (here.length > 1) {
 			const allRow = contentEl.createEl("label", { cls: "bc-ci-check" });
@@ -243,6 +250,7 @@ export class ReviewModal extends Modal {
 				if (box.checked) dailyBox.checked = here.some((v) => dayExists(localDate(v)));
 				else dailyBox.checked = Boolean(daily);
 				showDaily();
+				showTextOption();
 			};
 		}
 		};
@@ -255,6 +263,7 @@ export class ReviewModal extends Modal {
 			return this.pwSave(items, picker, {
 				link: linkBox.checked,
 				daily: dailyBox.checked,
+				asText: textBox.checked,
 				tags: choice.tags,
 				projects: choice.projects,
 				existingNote: noteFile,
@@ -329,6 +338,7 @@ export class ReviewModal extends Modal {
 		o: {
 			link: boolean;
 			daily: boolean;
+			asText: boolean;
 			tags: string[];
 			projects: string[];
 			existingNote: TFile | null;
@@ -379,11 +389,13 @@ export class ReviewModal extends Modal {
 			} else if (o.daily) {
 				placeNote = o.existingNote ?? cleanFileName(o.placeName);
 			}
+			// Plain text uses the place's own name.
+			if (o.asText && placeNote) placeNote = o.placeName;
 			if (o.daily && placeNote) {
 				const day = moment(localDate(item), "YYYY-MM-DD");
 				let daily = getDailyNote(app, config, day);
 				if (!daily && createMissing) daily = await createDailyNote(app, settings, day);
-				if (daily) await addPlaceToDailyNote(app, settings, daily, placeNote);
+				if (daily) await addPlaceToDailyNote(app, settings, daily, placeNote, o.asText);
 			}
 		}
 		await this.pwMarkReviewed(done);
