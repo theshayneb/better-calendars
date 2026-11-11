@@ -26,7 +26,8 @@ export interface FsqPlace {
 export interface PlaceNoteInfo {
 	path: string;
 	basename: string;
-	fsq: string;
+	/** Foursquare ids (Swarm's old ids and the Places API's can differ). */
+	fsq: string[];
 	location: LatLng | null;
 	visits: number;
 }
@@ -71,25 +72,25 @@ export function nameKey(name: string): string {
 }
 
 /**
- * The note that belongs to a place: the one with its Foursquare id, else a
- * note with the same name (also "Name (street)") that has no id yet and lies
- * within SAME_PLACE_METRES (or has no coordinates).
+ * The note that belongs to a place: the one with its Foursquare id; else a
+ * note with the same name (also "Name (street)") within SAME_PLACE_METRES,
+ * whatever id it has (Swarm's old ids and the Places API's can differ);
+ * else the only same-name note that has neither coordinates nor an id.
  */
 export function matchPlaceNote(place: FsqPlace, notes: PlaceNoteInfo[]): PlaceNoteInfo | null {
-	const byId = notes.find((n) => n.fsq && n.fsq === place.id);
+	const byId = notes.find((n) => n.fsq.includes(place.id));
 	if (byId) return byId;
 	const key = nameKey(place.name);
 	const candidates = notes.filter((n) => {
-		if (n.fsq) return false;
 		const base = n.basename.replace(/\s*\([^)]*\)\s*$/, "");
 		return nameKey(base) === key || nameKey(n.basename) === key;
 	});
-	const near = candidates.filter(
-		(n) => n.location && distanceMetres(n.location, place) <= SAME_PLACE_METRES
-	);
+	const near = candidates
+		.filter((n) => n.location && distanceMetres(n.location, place) <= SAME_PLACE_METRES)
+		.sort((a, b) => distanceMetres(a.location as LatLng, place) - distanceMetres(b.location as LatLng, place));
 	if (near.length > 0) return near[0] ?? null;
-	const noCoords = candidates.filter((n) => !n.location);
-	return noCoords.length === 1 ? (noCoords[0] ?? null) : null;
+	const blank = candidates.filter((n) => !n.location && n.fsq.length === 0);
+	return blank.length === 1 ? (blank[0] ?? null) : null;
 }
 
 /** "71-22 Austin St" -> "Austin St" (the street without the house number). */

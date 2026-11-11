@@ -21,6 +21,7 @@ import {
 	createDailyNotesAhead,
 	dailyNoteConfig,
 	getDailyNote,
+	invalidateDailyNoteIndex,
 	today,
 } from "./daily/daily-notes";
 
@@ -40,6 +41,10 @@ export default class BetterCalendarsPlugin extends Plugin {
 	async onload(): Promise<void> {
 		await this.loadSettings();
 		this.applyHideEventId();
+		// The daily note lookup keeps an index of note names.
+		for (const ev of ["create", "delete", "rename"] as const) {
+			this.registerEvent(this.app.vault.on(ev as "create", () => invalidateDailyNoteIndex()));
+		}
 
 		this.manager = new CalendarManager(
 			() => this.settings.calendars,

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.1] - 2026-11-11
+
+- Daily notes are found even when they aren't at the exact path from the daily note settings (e.g. older notes moved into year folders): Better Calendars looks for a note with that date's name, preferring the daily notes folder. This also keeps it from creating a second daily note for such days.
+- Existing place notes are recognised better: a note with the same name within about 150 m is the same place, even when it already has a different Foursquare id (Swarm's old ids and the Places API's can differ). Both ids are kept in `fsq`. Place notes outside the places folder are found too, by their `Geolink` or `fsq`.
+- Closing a question with X now cancels: nothing is saved (a live check-in isn't saved or posted; a past check-in stays in the review). Closing the review while "Apply to all" is saving stops after the current visit; the rest stay in the review.
+
 ## [1.2.0] - 2026-11-11
 
 Swarm history.

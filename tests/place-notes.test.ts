@@ -115,6 +115,37 @@ describe("recordVisit", () => {
 	});
 });
 
+describe("recordVisit with different Foursquare ids", () => {
+	it("uses the existing note and keeps both ids", async () => {
+		const { app, notes, created } = fakeApp({
+			"Travel/Prince Tea House.md": {
+				Geolink: "40.72217743090846, -73.84394712231544",
+				fsq: "places-api-id",
+				Visits: ["2026-11-11 12:40"],
+			},
+		});
+		const file = await recordVisit(app, settings, {
+			place: { ...prince, id: "old-swarm-id" },
+			tags: [],
+			projects: [],
+			visit: "2017-09-13 14:52",
+		});
+		expect(file.path).toBe("Travel/Prince Tea House.md");
+		expect(Object.keys(created)).toEqual([]);
+		expect(notes["Travel/Prince Tea House.md"]!.fsq).toEqual(["places-api-id", "old-swarm-id"]);
+		expect(notes["Travel/Prince Tea House.md"]!.Visits).toEqual(["2026-11-11 12:40", "2017-09-13 14:52"]);
+	});
+
+	it("finds place notes outside the places folder by their coordinates", async () => {
+		const { app, created } = fakeApp({
+			"Somewhere/Prince Tea House.md": { Geolink: "40.72217743090846, -73.84394712231544" },
+		});
+		const file = await recordVisit(app, settings, { place: prince, tags: [], projects: [], visit: "2017-09-13 14:52" });
+		expect(file.path).toBe("Somewhere/Prince Tea House.md");
+		expect(Object.keys(created)).toEqual([]);
+	});
+});
+
 describe("recordVisit for past check-ins", () => {
 	it("doesn't record the same visit twice", async () => {
 		const { app, notes } = fakeApp({ "Travel/Prince Tea House.md": { fsq: prince.id, Visits: ["2017-09-13 14:52 · tea"] } });

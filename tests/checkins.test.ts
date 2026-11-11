@@ -33,7 +33,7 @@ const place = (over: Partial<FsqPlace> = {}): FsqPlace => ({
 const note = (over: Partial<PlaceNoteInfo> = {}): PlaceNoteInfo => ({
 	path: "Travel/Prince Tea House.md",
 	basename: "Prince Tea House",
-	fsq: "",
+	fsq: [],
 	location: { lat: 40.72217743090846, lng: -73.84394712231544 },
 	visits: 0,
 	...over,
@@ -59,7 +59,7 @@ describe("coordinates", () => {
 
 describe("matchPlaceNote", () => {
 	it("finds a note by its Foursquare id first", () => {
-		const n = note({ basename: "Something else", fsq: "4b8f9c2af964a520a6f533e3" });
+		const n = note({ basename: "Something else", fsq: ["old-id", "4b8f9c2af964a520a6f533e3"] });
 		expect(matchPlaceNote(place(), [note(), n])).toBe(n);
 	});
 
@@ -69,9 +69,15 @@ describe("matchPlaceNote", () => {
 		expect(matchPlaceNote(place({ name: "PRINCE TEA HOUSE!" }), [existing])).toBe(existing);
 	});
 
-	it("doesn't adopt a same-name note far away or one that belongs to another place", () => {
+	it("matches a same-name note nearby even when it has another Foursquare id", () => {
+		// Swarm's old venue ids and the Places API's can differ for the same place.
+		const n = note({ fsq: ["places-api-id"] });
+		expect(matchPlaceNote(place(), [n])).toBe(n);
+	});
+
+	it("doesn't adopt a same-name note far away", () => {
 		expect(matchPlaceNote(place(), [note({ location: { lat: 40.8, lng: -73.9 } })])).toBeNull();
-		expect(matchPlaceNote(place(), [note({ fsq: "other-id" })])).toBeNull();
+		expect(matchPlaceNote(place(), [note({ location: null, fsq: ["other-id"] })])).toBeNull();
 	});
 
 	it("adopts a single same-name note without coordinates", () => {

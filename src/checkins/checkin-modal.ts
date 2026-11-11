@@ -21,8 +21,11 @@ const REFINE_MS = 8000;
 /** Search again when a better fix is this far from the one we searched with. */
 const RESEARCH_METRES = 60;
 
-/** Asks a yes/no question; resolves true for the first button. */
-export function ask(app: App, title: string, text: string, yes: string, no: string): Promise<boolean> {
+/**
+ * Asks a question with two answers. Resolves true for `yes`, false for `no`,
+ * and null when the dialog is closed (X, Escape): that means "cancel".
+ */
+export function ask(app: App, title: string, text: string, yes: string, no: string): Promise<boolean | null> {
 	return new Promise((resolve) => {
 		let answered = false;
 		const modal = new (class extends Modal {
@@ -45,7 +48,7 @@ export function ask(app: App, title: string, text: string, yes: string, no: stri
 			}
 			onClose(): void {
 				this.contentEl.empty();
-				if (!answered) resolve(false);
+				if (!answered) resolve(null);
 			}
 		})(app);
 		modal.open();
@@ -295,10 +298,28 @@ export class CheckinModal extends Modal {
 		const plugin = this.plugin;
 		const settings = plugin.settings;
 		const app = this.app;
-		settings.lastLocation = { lat: place.lat, lng: place.lng };
-
 		const done: string[] = [];
 		try {
+			// Ask first, so closing the question (X) cancels before anything is written.
+			const config = dailyNoteConfig(app, settings);
+			let daily = getDailyNote(app, config, today());
+			let createDaily = false;
+			if (!daily) {
+				const answer = await ask(
+					app,
+					"Today's daily note doesn't exist yet",
+					`Create it from your template and add ${place.name} to it?`,
+					"Create it",
+					"Don't add"
+				);
+				if (answer === null) {
+					new Notice("Check-in cancelled. Nothing was saved.");
+					return;
+				}
+				createDaily = answer;
+			}
+			settings.lastLocation = { lat: place.lat, lng: place.lng };
+
 			const visit = visitEntry(moment().format("YYYY-MM-DD HH:mm"), c.note);
 			const file = await recordVisit(app, settings, {
 				place,
@@ -308,18 +329,7 @@ export class CheckinModal extends Modal {
 			});
 			done.push(`visit added to ${file.basename}`);
 
-			const config = dailyNoteConfig(app, settings);
-			let daily = getDailyNote(app, config, today());
-			if (!daily) {
-				const create = await ask(
-					app,
-					"Today's daily note doesn't exist yet",
-					`Create it from your template and add ${file.basename} to it?`,
-					"Create it",
-					"Don't add"
-				);
-				if (create) daily = await createDailyNote(app, settings, today());
-			}
+			if (!daily && createDaily) daily = await createDailyNote(app, settings, today());
 			if (daily && (await addPlaceToDailyNote(app, settings, daily, file))) {
 				done.push("added to today's daily note");
 			}

@@ -26,6 +26,8 @@ export class ReviewModal extends Modal {
 	private pwNotes: PlaceNoteInfo[] = [];
 	private pwUnsaved = 0;
 	private pwBusy = false;
+	/** Set when the review is closed, so a running save stops. */
+	private pwClosed = false;
 
 	constructor(private readonly plugin: BetterCalendarsPlugin) {
 		super(plugin.app);
@@ -56,6 +58,7 @@ export class ReviewModal extends Modal {
 	}
 
 	onClose(): void {
+		this.pwClosed = true;
 		this.contentEl.empty();
 		if (this.pwUnsaved > 0) void this.plugin.saveSettings();
 	}
@@ -207,8 +210,7 @@ export class ReviewModal extends Modal {
 		saveBtn = this.pwButtons(picker, async () => {
 			const items = allBox?.checked ? here : [c];
 			const choice = picker.result();
-			picker.rememberCategory();
-			await this.pwSave(items, {
+			return this.pwSave(items, picker, {
 				link: linkBox.checked,
 				daily: dailyBox.checked,
 				tags: choice.tags,
@@ -221,7 +223,7 @@ export class ReviewModal extends Modal {
 	}
 
 	/** Skip / Save and next. Returns the save button. */
-	private pwButtons(picker: TagPicker | null, onSave: () => Promise<void>): HTMLButtonElement {
+	private pwButtons(picker: TagPicker | null, onSave: () => Promise<boolean | void>): HTMLButtonElement {
 		const row = this.contentEl.createDiv({ cls: "bc-rv-buttons" });
 		const skip = row.createEl("button", { text: "Skip" });
 		const save = row.createEl("button", { cls: "mod-cta", text: picker ? "Save and next" : "Next" });
@@ -241,8 +243,9 @@ export class ReviewModal extends Modal {
 			}
 			this.pwBusy = true;
 			save.disabled = true;
+			let saved: boolean | void = true;
 			try {
-				await onSave();
+				saved = await onSave();
 			} catch (e) {
 				console.warn("[Better Calendars] saving a past check-in failed", e);
 				new Notice(`Couldn't save this check-in. ${e instanceof Error ? e.message : String(e)}`, 10_000);
@@ -251,13 +254,20 @@ export class ReviewModal extends Modal {
 				return;
 			}
 			this.pwBusy = false;
-			this.pwNext();
+			if (saved === false) {
+				// Cancelled: stay on this check-in.
+				save.disabled = false;
+				return;
+			}
+			if (!this.pwClosed) this.pwNext();
 		};
 		return save;
 	}
 
+	/** Returns false when cancelled (nothing saved). */
 	private async pwSave(
 		items: SwarmCheckin[],
+		picker: TagPicker,
 		o: {
 			link: boolean;
 			daily: boolean;
@@ -266,7 +276,7 @@ export class ReviewModal extends Modal {
 			existingNote: TFile | null;
 			placeName: string;
 		}
-	): Promise<void> {
+	): Promise<boolean> {
 		const app: App = this.app;
 		const settings = this.plugin.settings;
 		const config = dailyNoteConfig(app, settings);
@@ -278,7 +288,7 @@ export class ReviewModal extends Modal {
 				(d) => !getDailyNote(app, config, moment(d, "YYYY-MM-DD"))
 			);
 			if (missing.length > 0) {
-				createMissing = await ask(
+				const answer = await ask(
 					app,
 					"Some days have no daily note",
 					items.length === 1
@@ -287,10 +297,18 @@ export class ReviewModal extends Modal {
 					"Create them",
 					"Skip those days"
 				);
+				// Closed with X: cancel, nothing is saved.
+				if (answer === null) return false;
+				createMissing = answer;
 			}
 		}
 
+		picker.rememberCategory();
+		const done: string[] = [];
 		for (const item of items) {
+			// Closing the review stops after the visit being written.
+			if (this.pwClosed) break;
+			done.push(item.id);
 			if (!item.place) continue;
 			let placeNote: TFile | string | null = null;
 			if (o.link) {
@@ -310,8 +328,16 @@ export class ReviewModal extends Modal {
 				if (daily) await addPlaceToDailyNote(app, settings, daily, placeNote);
 			}
 		}
-		await this.pwMarkReviewed(items.map((i) => i.id));
+		await this.pwMarkReviewed(done);
+		if (this.pwClosed) {
+			await this.plugin.saveSettings();
+			if (done.length < items.length) {
+				new Notice(`Stopped: saved ${done.length} of ${items.length} visits to ${o.placeName}. The rest stay in the review.`);
+			}
+			return true;
+		}
 		if (items.length > 1) new Notice(`Saved ${items.length} visits to ${o.placeName}.`);
+		return true;
 	}
 }
 

@@ -30,19 +30,24 @@ function inFolder(file: TFile, folder: string): boolean {
 	return !folder || file.path.startsWith(`${folder}/`);
 }
 
-/** Every note in the places folder, with what we need to recognise places. */
+/**
+ * Every note in the places folder, plus notes elsewhere that look like
+ * places (they have an fsq or coordinates property).
+ */
 export function listPlaceNotes(app: App, settings: BetterCalendarsSettings): PlaceNoteInfo[] {
 	const folder = folderOf(settings);
+	const geo = settings.geolinkProperty.trim() || "Geolink";
 	const out: PlaceNoteInfo[] = [];
 	for (const file of app.vault.getMarkdownFiles()) {
-		if (!inFolder(file, folder)) continue;
 		const fm = app.metadataCache.getFileCache(file)?.frontmatter ?? {};
-		const fsq: unknown = fm[FM_FSQ];
+		const location = parseLatLng(fm[geo]);
+		const fsq = asList(fm[FM_FSQ]);
+		if (!inFolder(file, folder) && !location && fsq.length === 0) continue;
 		out.push({
 			path: file.path,
 			basename: file.basename,
-			fsq: typeof fsq === "string" ? fsq : "",
-			location: parseLatLng(fm[settings.geolinkProperty]),
+			fsq,
+			location,
 			visits: asList(fm[VISITS]).length,
 		});
 	}
@@ -134,7 +139,10 @@ function applyVisit(fm: Record<string, unknown>, settings: BetterCalendarsSettin
 	const visits = asList(fm[VISITS]);
 	const stamp = w.visit.slice(0, 16);
 	fm[VISITS] = visits.some((v) => v.slice(0, 16) === stamp) ? visits : [...visits, w.visit];
-	if (typeof fm[FM_FSQ] !== "string" || !fm[FM_FSQ]) fm[FM_FSQ] = place.id;
+	// One place can have several Foursquare ids (Swarm's old one, the Places API's).
+	const ids = asList(fm[FM_FSQ]);
+	if (!ids.includes(place.id)) ids.push(place.id);
+	fm[FM_FSQ] = ids.length === 1 ? ids[0] : ids;
 }
 
 function normalizeUrl(u: string): string {

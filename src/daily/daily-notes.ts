@@ -103,13 +103,46 @@ export function dailyNotePath(config: DailyNoteConfig, date: Moment): string {
 	return joinPath(config.folder, `${date.format(config.format)}.md`);
 }
 
+/** Markdown files by lower-case name; cleared whenever a file is created, deleted or renamed. */
+let byName: { vault: unknown; map: Map<string, TFile[]> } | null = null;
+
+export function invalidateDailyNoteIndex(): void {
+	byName = null;
+}
+
+function filesNamed(app: App, basename: string): TFile[] {
+	if (!byName || byName.vault !== app.vault) {
+		const files = app.vault.getMarkdownFiles();
+		const map = new Map<string, TFile[]>();
+		for (const f of files) {
+			const k = f.basename.toLowerCase();
+			const list = map.get(k);
+			if (list) list.push(f);
+			else map.set(k, [f]);
+		}
+		byName = { vault: app.vault, map };
+	}
+	return (byName.map.get(basename.toLowerCase()) ?? []).filter((f) => app.vault.getFileByPath(f.path));
+}
+
+/**
+ * The daily note for a date: at the configured path, or else a note with
+ * that date's name somewhere else (e.g. older notes moved into year
+ * folders), preferring the daily notes folder and its subfolders.
+ */
 export function getDailyNote(
 	app: App,
 	config: DailyNoteConfig,
 	date: Moment
 ): TFile | null {
-	const file = app.vault.getAbstractFileByPath(dailyNotePath(config, date));
-	return file instanceof TFile ? file : null;
+	const path = dailyNotePath(config, date);
+	const file = app.vault.getAbstractFileByPath(path);
+	if (file instanceof TFile) return file;
+	const name = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
+	const named = filesNamed(app, name);
+	if (named.length === 0) return null;
+	const folder = config.folder.replace(/^\/+|\/+$/g, "");
+	return (folder ? named.find((f) => f.path.startsWith(`${folder}/`)) : undefined) ?? named[0] ?? null;
 }
 
 /** "[[2026-10-12]]", pointing at the daily note for that date (existing or not). */
