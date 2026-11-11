@@ -150,6 +150,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 			swarmQueue: [...(loaded.swarmQueue ?? [])],
 			swarmPostedIds: [...(loaded.swarmPostedIds ?? [])],
 			swarmReviewed: [...(loaded.swarmReviewed ?? [])],
+			swarmSkipped: [...(loaded.swarmSkipped ?? [])],
 			nycTagAdded: true,
 		};
 		this.addNycTagOnce(loaded);
@@ -180,7 +181,11 @@ export default class BetterCalendarsPlugin extends Plugin {
 			if ((await loadHistory(this)).length === 0) return;
 			const { history, added } = await refreshHistory(this);
 			if (added === 0) return;
-			const fresh = pendingCheckins(history.slice(0, added), s.swarmReviewed, s.swarmPostedIds);
+			const fresh = pendingCheckins(
+				history.slice(0, added),
+				[...s.swarmReviewed, ...s.swarmSkipped],
+				s.swarmPostedIds
+			);
 			if (fresh.length > 0) {
 				new Notice(
 					`Better Calendars: ${fresh.length} new Swarm check-in${fresh.length === 1 ? "" : "s"} to review (Catch up on Swarm history).`

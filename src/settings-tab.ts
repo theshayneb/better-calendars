@@ -535,7 +535,17 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("Swarm history")
 				.setDesc(
-					`${settings.swarmReviewed.length.toLocaleString()} check-ins reviewed. New check-ins from the Swarm app are pulled in ${this.plugin.importsOnThisDevice() ? "on this device" : "on another device (\"Import on this device\" is off here)"}.`
+					`${settings.swarmReviewed.length.toLocaleString()} check-ins reviewed, ${settings.swarmSkipped.length.toLocaleString()} skipped. New check-ins from the Swarm app are pulled in ${this.plugin.importsOnThisDevice() ? "on this device" : "on another device (\"Import on this device\" is off here)"}.`
+				)
+				.addButton((b) =>
+					b
+						.setButtonText("Bring skipped back")
+						.setDisabled(settings.swarmSkipped.length === 0)
+						.onClick(async () => {
+							settings.swarmSkipped = [];
+							await this.plugin.saveSettings();
+							this.display();
+						})
 				)
 				.addButton((b) => b.setButtonText("Catch up").onClick(() => openReview(this.plugin)));
 		}

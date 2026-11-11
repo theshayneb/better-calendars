@@ -26,6 +26,8 @@ export class ReviewModal extends Modal {
 	private pwNotes: PlaceNoteInfo[] = [];
 	private pwUnsaved = 0;
 	private pwBusy = false;
+	/** Put off with "Later": shown again at the end of this session and next time. Not saved. */
+	private readonly pwLater: string[] = [];
 	/** Set when the review is closed, so a running save stops. */
 	private pwClosed = false;
 
@@ -65,7 +67,13 @@ export class ReviewModal extends Modal {
 
 	private pwRecompute(): void {
 		const s = this.plugin.settings;
-		this.pwPending = pendingCheckins(this.pwHistory, s.swarmReviewed, s.swarmPostedIds);
+		const pending = pendingCheckins(this.pwHistory, [...s.swarmReviewed, ...s.swarmSkipped], s.swarmPostedIds);
+		// "Later" ones go to the end of the queue.
+		const later = new Set(this.pwLater);
+		this.pwPending = [
+			...pending.filter((c) => !later.has(c.id)),
+			...this.pwLater.map((id) => pending.find((c) => c.id === id)).filter((c): c is SwarmCheckin => Boolean(c)),
+		];
 		this.pwTotal = reviewTotal(this.pwHistory, s.swarmPostedIds);
 	}
 
@@ -225,13 +233,29 @@ export class ReviewModal extends Modal {
 	/** Skip / Save and next. Returns the save button. */
 	private pwButtons(picker: TagPicker | null, onSave: () => Promise<boolean | void>): HTMLButtonElement {
 		const row = this.contentEl.createDiv({ cls: "bc-rv-buttons" });
+		const later = row.createEl("button", { text: "Later" });
+		later.setAttr("aria-label", "Later: comes back next time");
 		const skip = row.createEl("button", { text: "Skip" });
+		skip.setAttr("aria-label", "Skip: don't show this one again");
 		const save = row.createEl("button", { cls: "mod-cta", text: picker ? "Save and next" : "Next" });
 		const current = this.pwPending[0];
+		later.onclick = () => {
+			if (this.pwBusy || !current) return;
+			const i = this.pwLater.indexOf(current.id);
+			if (i >= 0) this.pwLater.splice(i, 1);
+			this.pwLater.push(current.id);
+			this.pwNext();
+		};
 		skip.onclick = async () => {
 			if (this.pwBusy || !current) return;
 			this.pwBusy = true;
-			await this.pwMarkReviewed([current.id]);
+			const skipped = this.plugin.settings.swarmSkipped;
+			if (!skipped.includes(current.id)) skipped.push(current.id);
+			this.pwUnsaved++;
+			if (this.pwUnsaved >= SAVE_EVERY) {
+				this.pwUnsaved = 0;
+				await this.plugin.saveSettings();
+			}
 			this.pwBusy = false;
 			this.pwNext();
 		};

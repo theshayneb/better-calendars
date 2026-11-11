@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.2] - 2026-11-11
+
+- Swarm history review: new "Later" button. It moves on without recording anything; the check-in comes back at the end of this session and the next time you open the review.
+- "Skip" still means "don't show again", but skipped check-ins are now kept apart: Settings → Check-ins → Swarm history → "Bring skipped back" puts them in the queue again. (Check-ins skipped with 1.2.0 or 1.2.1 can't be told apart from saved ones, so they can't be brought back.)
+
 ## [1.2.1] - 2026-11-11
 
 - Daily notes are found even when they aren't at the exact path from the daily note settings (e.g. older notes moved into year folders): Better Calendars looks for a note with that date's name, preferring the daily notes folder. This also keeps it from creating a second daily note for such days.

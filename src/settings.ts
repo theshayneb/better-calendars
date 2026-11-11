@@ -92,6 +92,8 @@ export interface BetterCalendarsSettings {
 	swarmPostedIds: string[];
 	/** Swarm check-in ids already reviewed (saved or skipped) in "Catch up on Swarm history". */
 	swarmReviewed: string[];
+	/** Swarm check-in ids skipped in the review ("Bring skipped back" puts them in the queue again). */
+	swarmSkipped: string[];
 }
 
 export interface QueuedSwarmCheckin {
@@ -160,6 +162,7 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	swarmQueue: [],
 	swarmPostedIds: [],
 	swarmReviewed: [],
+	swarmSkipped: [],
 };
 
 export function normalizeCalendar(raw: unknown): CalendarSource {
