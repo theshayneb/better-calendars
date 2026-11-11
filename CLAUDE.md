@@ -12,6 +12,10 @@ An Obsidian plugin (id `better-calendars`), installed by the owner through BRAT.
   4. Tell the owner the version number. They use the GitHub web interface, not git.
 - Never reuse a version number.
 
+## Screen tests
+
+`tests/review-screen.test.ts` draws the history review in jsdom (`tests/dom.ts` adds Obsidian's DOM helpers, `tests/obsidian-mock.ts` a fake Modal) and checks what's visible. Add a case there when changing a screen: a misplaced block (1.2.3, 1.2.4) compiled fine but only these tests caught it.
+
 ## Checks before pushing
 
 ```

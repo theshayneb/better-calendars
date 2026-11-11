@@ -1,6 +1,6 @@
 {
 	"name": "better-calendars",
-	"version": "1.2.4",
+	"version": "1.2.5",
 	"description": "Calendar sidebar for Obsidian: create daily notes in advance with a template, and automatically import Google Calendar events as notes.",
 	"main": "main.js",
 	"type": "module",
@@ -33,6 +33,7 @@
 		"eslint-plugin-obsidianmd": "^0.4.2",
 		"globals": "^14.0.0",
 		"jiti": "^2.6.1",
+		"jsdom": "^25.0.1",
 		"moment": "^2.29.4",
 		"obsidian": "^1.14.4",
 		"tslib": "^2.4.0",

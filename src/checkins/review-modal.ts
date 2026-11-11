@@ -225,6 +225,9 @@ export class ReviewModal extends Modal {
 			}
 			createDaily.disabled = false;
 			showDaily();
+			showTextOption();
+		};
+		showDaily();
 		showTextOption();
 
 		if (here.length > 1) {
@@ -253,8 +256,6 @@ export class ReviewModal extends Modal {
 				showTextOption();
 			};
 		}
-		};
-		showDaily();
 
 
 		saveBtn = this.pwButtons(picker, async () => {

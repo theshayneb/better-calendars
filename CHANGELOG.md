@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.5] - 2026-11-11
+
+- Fixed the Swarm history review: "Apply to all N visits here" (and its list of visits) only appeared after pressing "Create … from your template" since 1.2.3. It's shown again whenever a place has more than one visit to review.
+- Fixed "Add the name as plain text (not a link)" showing while "Add to daily note" was unticked.
+
 ## [1.2.4] - 2026-11-11
 
 - Swarm history review: new option under "Add to daily note": "Add the name as plain text (not a link)". Off by default; when ticked, the daily note's `Places` gets the place's name without making it a link.
