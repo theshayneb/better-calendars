@@ -10,6 +10,7 @@ import { CalendarManager } from "./events/manager";
 import { EventImporter, EventNoteIndex } from "./events/importer";
 import { CalendarView, VIEW_TYPE_CALENDAR } from "./ui/calendar-view";
 import { ConfirmModal, CreateAheadModal } from "./ui/modals";
+import { openLocationTest } from "./checkins/location";
 import {
 	createDailyNote,
 	createDailyNotesAhead,
@@ -70,6 +71,11 @@ export default class BetterCalendarsPlugin extends Plugin {
 			id: "refresh-and-import",
 			name: "Refresh calendars, import events and create daily notes ahead",
 			callback: () => void this.refreshAndImport(true),
+		});
+		this.addCommand({
+			id: "test-location",
+			name: "Test location (GPS)",
+			callback: () => openLocationTest(this.app),
 		});
 
 		this.addSettingTab(new BetterCalendarsSettingTab(this.app, this));

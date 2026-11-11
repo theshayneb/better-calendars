@@ -27,7 +27,10 @@ export default tseslint.config(
 		rules: {
 			"obsidianmd/ui/sentence-case": [
 				"warn",
-				{ brands: ["Better Calendars", "Templater", "Google", "Google Calendar", "iCal"] },
+				{
+					brands: ["Better Calendars", "Templater", "Google", "Google Calendar", "iCal", "Foursquare", "Swarm"],
+					acronyms: ["GPS"],
+				},
 			],
 		},
 	},

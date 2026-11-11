@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.13] - 2026-11-11
+
+- New command "Test location (GPS)": shows whether this device gives Better Calendars its location, ahead of the check-in feature. On Android it should ask for location permission the first time.
+
 ## [1.0.12] - 2026-10-13
 
 - When an event is renamed in the calendar, its note's file name follows: the old title in the file name is replaced by the new one. A `Title` property that still holds the old title is updated too. Notes you renamed yourself keep their name.
