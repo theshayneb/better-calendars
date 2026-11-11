@@ -7,6 +7,9 @@ import { CalendarEditModal, ConfirmModal } from "./ui/modals";
 import { FileSuggest, FolderSuggest } from "./ui/suggest";
 import { DEFAULT_DAILY_FORMAT, coreDailyNoteOptions } from "./daily/daily-notes";
 import { resolveTemplateFile } from "./util/vault";
+import { SWARM_REDIRECT } from "./checkins/foursquare";
+import { disconnectSwarm, startSwarmConnect } from "./checkins/swarm";
+import { normalizeTag } from "./checkins/logic";
 
 export class BetterCalendarsSettingTab extends PluginSettingTab {
 	constructor(app: App, private readonly plugin: BetterCalendarsPlugin) {
@@ -443,6 +446,204 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					await save();
 				})
 			);
+		this.renderCheckins(save);
+	}
+
+	private renderCheckins(save: () => Promise<void>): void {
+		const { containerEl } = this;
+		const settings = this.plugin.settings;
+		const list = (text: string) =>
+			text
+				.split(/[,\n]/)
+				.map((t) => normalizeTag(t))
+				.filter(Boolean);
+
+		new Setting(containerEl).setName("Check-ins").setHeading();
+		new Setting(containerEl)
+			.setName("Foursquare API key")
+			.setDesc("For finding places. From your Foursquare developer project.")
+			.addText((t) => {
+				t.inputEl.type = "password";
+				t.setValue(settings.fsqApiKey).onChange(async (v) => {
+					settings.fsqApiKey = v.trim();
+					await save();
+				});
+			});
+
+		const connected = Boolean(settings.swarmToken);
+		const swarm = new Setting(containerEl)
+			.setName("Swarm")
+			.setDesc(
+				connected
+					? `Connected as ${settings.swarmUser || "your account"}.`
+					: `Not connected. In your Foursquare developer project, set the redirect URL to ${SWARM_REDIRECT}, enter the client ID and secret below, then connect.`
+			);
+		if (connected) {
+			swarm.addButton((b) =>
+				b.setButtonText("Disconnect").onClick(async () => {
+					await disconnectSwarm(this.plugin);
+					this.display();
+				})
+			);
+		} else {
+			swarm.addButton((b) =>
+				b
+					.setButtonText("Connect")
+					.setCta()
+					.onClick(() => startSwarmConnect(this.plugin))
+			);
+		}
+		new Setting(containerEl).setName("Client ID").addText((t) =>
+			t.setValue(settings.swarmClientId).onChange(async (v) => {
+				settings.swarmClientId = v.trim();
+				await save();
+			})
+		);
+		new Setting(containerEl).setName("Client secret").addText((t) => {
+			t.inputEl.type = "password";
+			t.setValue(settings.swarmClientSecret).onChange(async (v) => {
+				settings.swarmClientSecret = v.trim();
+				await save();
+			});
+		});
+		if (settings.swarmQueue.length > 0) {
+			new Setting(containerEl)
+				.setName("Waiting for Swarm")
+				.setDesc(
+					`${settings.swarmQueue.length} check-in${settings.swarmQueue.length === 1 ? "" : "s"} will be posted on the next refresh: ${settings.swarmQueue.map((q) => q.placeName).join(", ")}. Last error: ${settings.swarmQueue[settings.swarmQueue.length - 1]?.lastError ?? ""}`
+				)
+				.addButton((b) =>
+					b.setButtonText("Discard").onClick(async () => {
+						settings.swarmQueue = [];
+						await save();
+						this.display();
+					})
+				);
+		}
+
+		new Setting(containerEl)
+			.setName("Places folder")
+			.setDesc("Where place notes live.")
+			.addText((t) => {
+				t.setPlaceholder("Planning & Productivity/Travel")
+					.setValue(settings.placesFolder)
+					.onChange(async (v) => {
+						settings.placesFolder = v.trim();
+						await save();
+					});
+				new FolderSuggest(this.app, t.inputEl, (v) => {
+					settings.placesFolder = v;
+					void save();
+				});
+			});
+		new Setting(containerEl)
+			.setName("Coordinates property")
+			.setDesc("Place note property with \"lat, lng\".")
+			.addText((t) =>
+				t
+					.setPlaceholder("Geolink")
+					.setValue(settings.geolinkProperty)
+					.onChange(async (v) => {
+						settings.geolinkProperty = v.trim() || "Geolink";
+						await save();
+					})
+			);
+		new Setting(containerEl)
+			.setName("Daily note places property")
+			.setDesc("Daily note property that lists the day's places.")
+			.addText((t) =>
+				t
+					.setPlaceholder("Places")
+					.setValue(settings.dailyPlacesProperty)
+					.onChange(async (v) => {
+						settings.dailyPlacesProperty = v.trim() || "Places";
+						await save();
+					})
+			);
+		new Setting(containerEl)
+			.setName("Hide fsq property")
+			.setDesc("Hide the fsq property in the properties panel. It stays in the note, because that's how places are recognized.")
+			.addToggle((t) =>
+				t.setValue(settings.hideFsq).onChange(async (v) => {
+					settings.hideFsq = v;
+					this.plugin.applyHideEventId();
+					await save();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Your tags")
+			.setDesc("Offered as chips when you check in. Separate with commas.")
+			.addTextArea((t) =>
+				t.setValue(settings.checkinTags.join(", ")).onChange(async (v) => {
+					settings.checkinTags = list(v);
+					await save();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Always add")
+			.setDesc("Tags every place note gets.")
+			.addText((t) =>
+				t.setValue(settings.alwaysTags.join(", ")).onChange(async (v) => {
+					settings.alwaysTags = list(v);
+					await save();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Tags that add another tag")
+			.setDesc("One per line, e.g. \"pizza: food\": a place tagged pizza also gets food.")
+			.addTextArea((t) => {
+				t.inputEl.rows = 4;
+				t.setValue(
+					Object.entries(settings.impliedTags)
+						.map(([k, v]) => `${k}: ${v.join(", ")}`)
+						.join("\n")
+				).onChange(async (v) => {
+					const map: Record<string, string[]> = {};
+					for (const line of v.split("\n")) {
+						const [k, rest] = line.split(":");
+						const key = normalizeTag(k ?? "");
+						const tags = list(rest ?? "");
+						if (key && tags.length > 0) map[key] = tags;
+					}
+					settings.impliedTags = map;
+					await save();
+				});
+			});
+
+		const cats = Object.entries(settings.categoryTags).sort((a, b) =>
+			a[1].name.localeCompare(b[1].name)
+		);
+		new Setting(containerEl)
+			.setName("Tag per category")
+			.setDesc(
+				cats.length === 0
+					? "Filled in as you check in: the first time a category has no tag, you're asked."
+					: "Remembered when you check in. Remove one to be asked again."
+			);
+		for (const [id, entry] of cats) {
+			new Setting(containerEl)
+				.setName(entry.name)
+				.setClass("bc-category-row")
+				.addDropdown((d) => {
+					d.addOption("", "No tag");
+					for (const t of settings.checkinTags) d.addOption(t, t);
+					if (entry.tag && !settings.checkinTags.includes(entry.tag)) d.addOption(entry.tag, entry.tag);
+					d.setValue(entry.tag).onChange(async (v) => {
+						settings.categoryTags[id] = { name: entry.name, tag: v };
+						await save();
+					});
+				})
+				.addExtraButton((b) =>
+					b
+						.setIcon("trash")
+						.setTooltip("Forget (ask again next time)")
+						.onClick(async () => {
+							delete settings.categoryTags[id];
+							await save();
+							this.display();
+						})
+				);
+		}
 	}
 
 	private renderCalendar(calendar: CalendarSource): void {

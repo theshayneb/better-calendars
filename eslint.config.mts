@@ -29,7 +29,7 @@ export default tseslint.config(
 				"warn",
 				{
 					brands: ["Better Calendars", "Templater", "Google", "Google Calendar", "iCal", "Foursquare", "Swarm"],
-					acronyms: ["GPS"],
+					acronyms: ["GPS", "API", "ID", "URL"],
 				},
 			],
 		},

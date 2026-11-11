@@ -55,6 +55,51 @@ export interface BetterCalendarsSettings {
 	noteNames: Record<string, { name: string; title: string }>;
 	/** Events that already got a note: event id -> event start (ms). Deleting such a note doesn't bring it back. */
 	imported: Record<string, number>;
+
+	// Check-ins
+	/** Foursquare Places API key (service key), for finding places. */
+	fsqApiKey: string;
+	/** Foursquare developer project, for signing in to Swarm. */
+	swarmClientId: string;
+	swarmClientSecret: string;
+	/** Swarm access token; empty when not connected. */
+	swarmToken: string;
+	/** Display name of the connected Swarm account. */
+	swarmUser: string;
+	/** Folder of place notes. */
+	placesFolder: string;
+	/** Property holding "lat, lng" in place notes. */
+	geolinkProperty: string;
+	/** Daily note property listing the places of the day. */
+	dailyPlacesProperty: string;
+	/** Hide the fsq property in the Properties panel. */
+	hideFsq: boolean;
+	/** The tags offered as chips. */
+	checkinTags: string[];
+	/** Tags every place note gets. */
+	alwaysTags: string[];
+	/** A tag that brings others along, e.g. pizza -> food. */
+	impliedTags: Record<string, string[]>;
+	/** Foursquare category id -> remembered tag; "" means "no tag for this category". */
+	categoryTags: Record<string, { name: string; tag: string }>;
+	/** Last place checked in (for searching near it on desktop). */
+	lastLocation: { lat: number; lng: number } | null;
+	/** Swarm check-ins waiting to be posted (no signal, Foursquare down). */
+	swarmQueue: QueuedSwarmCheckin[];
+	/** Swarm check-in ids made from Obsidian (so the history review skips them). */
+	swarmPostedIds: string[];
+}
+
+export interface QueuedSwarmCheckin {
+	venueId: string;
+	placeName: string;
+	shout: string;
+	/** When the check-in happened (ms). */
+	at: number;
+	/** The device that queued it; only that device retries, so it's never posted twice. */
+	device: string;
+	attempts: number;
+	lastError: string;
 }
 
 export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
@@ -92,6 +137,23 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	syncPeople: true,
 	peopleAdded: {},
 	noteNames: {},
+
+	fsqApiKey: "",
+	swarmClientId: "",
+	swarmClientSecret: "",
+	swarmToken: "",
+	swarmUser: "",
+	placesFolder: "Planning & Productivity/Travel",
+	geolinkProperty: "Geolink",
+	dailyPlacesProperty: "Places",
+	hideFsq: true,
+	checkinTags: ["dessert", "pizza", "tea", "food", "shopping", "sight", "museum", "activity", "outdoors"],
+	alwaysTags: ["place"],
+	impliedTags: { pizza: ["food"], tea: ["food"], dessert: ["food"] },
+	categoryTags: {},
+	lastLocation: null,
+	swarmQueue: [],
+	swarmPostedIds: [],
 };
 
 export function normalizeCalendar(raw: unknown): CalendarSource {

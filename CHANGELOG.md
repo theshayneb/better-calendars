@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0] - 2026-11-11
+
+Check-ins, Swarm/Foursquare style.
+
+- New "Check in" command and ribbon icon. On your phone it lists the places around you (GPS), nearest first, with their category and how often you've been there; search by name on any device.
+- Each check-in records a visit in the place's note (in the places folder, default `Planning & Productivity/Travel`): `tags`, `Address`, `Geolink`, `Projects`, `Link` (website and Google Maps), `Visits` and `fsq`. Existing place notes with the same name nearby are used instead of creating new ones; their values are kept and only empty properties are filled.
+- Tags: `place` on every place note, a remembered tag per Foursquare category (you're asked the first time, "no tag" can be remembered too), tags that bring others along (pizza, tea and dessert also add `food`), and extra tags per place.
+- `Projects` suggests values you've already used in the vault.
+- The place is added to the daily note's `Places` list once per day; if today's daily note doesn't exist yet, you're asked.
+- Optionally posts the check-in to Swarm (public, your note as the shout). Failed posts are queued and retried on the next refresh.
+- New "Check-ins" settings: Foursquare API key, Swarm connection (client ID, secret, connect/disconnect), places folder, property names, hide `fsq`, your tags and the tag per category.
+
 ## [1.0.13] - 2026-11-11
 
 - New command "Test location (GPS)": shows whether this device gives Better Calendars its location, ahead of the check-in feature. On Android it should ask for location permission the first time.

@@ -4,6 +4,7 @@ An Obsidian plugin that combines the useful parts of [Calendar](https://github.c
 
 - **Daily notes in advance, with your template.** A month calendar in the sidebar; click any day (past, today or future) to open its daily note or create it from your template.
 - **Google Calendar events become notes automatically.** Add your calendar once; every upcoming event gets its own note without opening a panel or clicking anything.
+- **Check in to places.** Pick a nearby place on your phone (or search by name), and get a note per place with your visits, the place in your daily note, and the check-in posted to Swarm.
 
 ## Install with BRAT
 
@@ -74,9 +75,64 @@ Event note templates (a file you choose in settings, or the built-in one) can us
 
 Better Calendars adds an `event_id` property to each event note; that's how it recognizes the note later. It is hidden in the properties panel unless you turn off "Hide event_id property". It also sets the date property (`Date` by default) if your template doesn't.
 
+## Check-ins
+
+Check in to places from Obsidian, Swarm/Foursquare style. Each check-in records a visit in a note for the place, adds the place to your daily note, and (optionally) posts the check-in to your Swarm account.
+
+**Check in** (ribbon map-pin icon, or the "Check in" command):
+
+- **On your phone**, Better Calendars reads your location (Obsidian Mobile 1.11 or later; allow location when Android asks) and lists the places around you, nearest first, with their category and how often you've been there. The search box finds places by name. "Test location (GPS)" shows whether location works on a device.
+- **On desktop** there is no GPS: search places by name. Results are biased to where you last checked in.
+- Pick a place, then choose tags, add projects and an optional note (which becomes your Swarm shout), and press **Check in**.
+
+**Tags.** Place notes get real tags in `tags`:
+
+- **Always add** (default `place`) goes on every place note.
+- Each Foursquare category remembers one tag ("every Pizzeria is pizza"), preselected at check-in. The first time a category has no tag, you're asked; "No tag for this category" is remembered too. Change these under **Tag per category**.
+- **Tags that add another tag**: `pizza: food` gives every pizza place `food` as well (preset for pizza, tea and dessert).
+- Any of your tags can be added to one place as chips, and "+ new" adds a tag.
+
+**Place notes** live in the places folder (default `Planning & Productivity/Travel`), one per place, named after the place; when another place already has that name, the street is added: "Starbucks (Austin St)". A check-in fills in:
+
+```
+tags:
+  - place
+  - food
+  - tea
+Address: 15 Station Square, Forest Hills, NY 11375
+Geolink: 40.72218, -73.84395
+Projects:
+  - Forest Hills
+Link:
+  - http://princeteahouseorders.com/
+  - https://www.google.com/maps/search/?api=1&query=...
+Visits:
+  - 2026-11-11 12:40 · first time back
+fsq: 4b8f9c2af964a520a6f533e3
+```
+
+- An existing note with the same name and coordinates within about 150 m (or the same `fsq`) is used instead of creating a new one. Existing values are kept: only empty properties are filled, tags and links are added to, and `Visits` only grows.
+- `Projects` is yours to fill in: the check-in screen suggests values you've already used in `Projects` anywhere in the vault.
+- `fsq` is the Foursquare place ID, used to recognise the place and to post to Swarm. It's hidden in the properties panel ("Hide fsq property").
+
+**Daily note.** The place is added to the daily note's `Places` property (a list of links, once per day). If today's daily note doesn't exist yet, you're asked whether to create it.
+
+**Swarm.** When "Also check in on Swarm" is ticked, the check-in is posted publicly to your Swarm account, with your note as the shout. Without a connection (no signal, Foursquare down), the visit is still saved and the Swarm post is retried on the next refresh, by the same device only.
+
+### Setting up check-ins
+
+1. In the [Foursquare developer console](https://foursquare.com/developers/), open your project and create an API key (for place search).
+2. In the same project's OAuth settings, set the **Redirect URL** to `obsidian://better-calendars-swarm`, and copy the **Client ID** and **Client Secret**.
+3. In Settings → Better Calendars → **Check-ins**, enter the API key, client ID and client secret, then press **Connect** and approve the access in your browser. You come back to Obsidian connected. Do this once, on desktop; the connection syncs to your other devices with the plugin's settings.
+
 ## Privacy
 
-The only network requests are to the calendar addresses you add. Keep your secret iCal address private: anyone with it can read that calendar.
+Better Calendars talks to:
+
+- **The calendar addresses you add.** Keep your secret iCal address private: anyone with it can read that calendar.
+- **Foursquare, only when you use check-ins**: place searches send your location (or your search text) to Foursquare's Places API, and posting a check-in sends the place and your note to your Swarm account. Signing in to Swarm goes through foursquare.com.
+
+Your API key, client secret and Swarm access token are stored in the plugin's `data.json` in your vault, which Obsidian Sync copies to your other devices. Nothing else leaves your devices; there is no analytics.
 
 ## Credits
 

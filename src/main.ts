@@ -11,6 +11,8 @@ import { EventImporter, EventNoteIndex } from "./events/importer";
 import { CalendarView, VIEW_TYPE_CALENDAR } from "./ui/calendar-view";
 import { ConfirmModal, CreateAheadModal } from "./ui/modals";
 import { openLocationTest } from "./checkins/location";
+import { openCheckin } from "./checkins/checkin-modal";
+import { finishSwarmConnect, retrySwarmQueue } from "./checkins/swarm";
 import {
 	createDailyNote,
 	createDailyNotesAhead,
@@ -26,6 +28,7 @@ const LOCAL_IMPORT_KEY = "better-calendars-import-here";
 export default class BetterCalendarsPlugin extends Plugin {
 	settings!: BetterCalendarsSettings;
 	manager!: CalendarManager;
+	settingTab: BetterCalendarsSettingTab | null = null;
 	importer!: EventImporter;
 	private refreshTimer: number | null = null;
 	private startupDone = false;
@@ -78,7 +81,19 @@ export default class BetterCalendarsPlugin extends Plugin {
 			callback: () => openLocationTest(this.app),
 		});
 
-		this.addSettingTab(new BetterCalendarsSettingTab(this.app, this));
+		this.settingTab = new BetterCalendarsSettingTab(this.app, this);
+		this.addSettingTab(this.settingTab);
+
+		// Check-ins
+		this.addRibbonIcon("map-pin", "Check in", () => openCheckin(this));
+		this.addCommand({
+			id: "check-in",
+			name: "Check in",
+			callback: () => openCheckin(this),
+		});
+		this.registerObsidianProtocolHandler("better-calendars-swarm", (params) => {
+			void finishSwarmConnect(this, params);
+		});
 
 		this.app.workspace.onLayoutReady(() => {
 			if (this.settings.openOnStartup) void this.activateView(false);
@@ -95,6 +110,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 
 	onunload(): void {
 		document.body.removeClass("bc-hide-event-id");
+		document.body.removeClass("bc-hide-fsq");
 		if (this.startupTimer !== null) window.clearTimeout(this.startupTimer);
 		if (this.refreshTimer !== null) window.clearInterval(this.refreshTimer);
 	}
@@ -110,6 +126,12 @@ export default class BetterCalendarsPlugin extends Plugin {
 			imported: { ...(loaded.imported ?? {}) },
 			peopleAdded: { ...(loaded.peopleAdded ?? {}) },
 			noteNames: { ...(loaded.noteNames ?? {}) },
+			checkinTags: [...(loaded.checkinTags ?? DEFAULT_SETTINGS.checkinTags)],
+			alwaysTags: [...(loaded.alwaysTags ?? DEFAULT_SETTINGS.alwaysTags)],
+			impliedTags: { ...(loaded.impliedTags ?? DEFAULT_SETTINGS.impliedTags) },
+			categoryTags: { ...(loaded.categoryTags ?? {}) },
+			swarmQueue: [...(loaded.swarmQueue ?? [])],
+			swarmPostedIds: [...(loaded.swarmPostedIds ?? [])],
 		};
 	}
 
@@ -117,7 +139,13 @@ export default class BetterCalendarsPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	/** Redraw the settings tab if it is open (e.g. after Swarm sign-in). */
+	refreshSettingsTab(): void {
+		if (this.settingTab?.containerEl.isShown()) this.settingTab.display();
+	}
+
 	applyHideEventId(): void {
+		document.body.toggleClass("bc-hide-fsq", this.settings.hideFsq);
 		document.body.toggleClass("bc-hide-event-id", this.settings.hideEventId);
 	}
 
@@ -178,6 +206,11 @@ export default class BetterCalendarsPlugin extends Plugin {
 			}
 		}
 		if (manual || auto) await this.autoCreateDailyNotes();
+		try {
+			await retrySwarmQueue(this);
+		} catch (e) {
+			console.warn("[Better Calendars] Swarm retry failed", e);
+		}
 		this.refreshViews();
 	}
 
