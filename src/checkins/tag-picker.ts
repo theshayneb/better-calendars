@@ -1,6 +1,14 @@
 import { AbstractInputSuggest, App, TFile } from "obsidian";
 import type { BetterCalendarsSettings } from "../settings";
-import { FsqPlace, checkinTags, guessTag, linkKey, normalizeTag } from "./logic";
+import {
+	FsqPlace,
+	NOT_ALLOWED_IN_NAMES,
+	checkinTags,
+	cleanFileName,
+	guessTag,
+	linkKey,
+	normalizeTag,
+} from "./logic";
 import { propertyValues } from "./place-notes";
 
 /** Suggests values already used in a property (e.g. Projects). */
@@ -299,4 +307,30 @@ export class TagPicker {
 			window.setTimeout(() => input.focus(), 20);
 		};
 	}
+}
+
+/**
+ * "Note name" for a place that has no note yet: the suggested name, editable.
+ * Returns a getter for the name to use.
+ */
+export function noteNameField(container: HTMLElement, suggested: string): () => string {
+	const box = container.createDiv({ cls: "bc-ci-section" });
+	const id = `bc-ci-name-${Math.random().toString(36).slice(2, 8)}`;
+	box.createEl("label", { cls: "bc-ci-label", text: "Note name", attr: { for: id } });
+	const input = box.createEl("input", { cls: "bc-ci-input", attr: { id, type: "text" } });
+	input.value = suggested;
+	const hint = box.createEl("p", { cls: "bc-ci-hint" });
+	const update = () => {
+		const cleaned = cleanFileName(input.value);
+		hint.setText(
+			!cleaned
+				? `Needs a name. These can't be used: ${NOT_ALLOWED_IN_NAMES}`
+				: cleaned !== input.value.trim()
+					? `Will be saved as "${cleaned}" (these can't be used: ${NOT_ALLOWED_IN_NAMES})`
+					: ""
+		);
+	};
+	input.addEventListener("input", update);
+	update();
+	return () => cleanFileName(input.value) || suggested;
 }

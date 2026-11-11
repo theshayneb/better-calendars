@@ -146,6 +146,33 @@ describe("recordVisit with different Foursquare ids", () => {
 	});
 });
 
+describe("recordVisit with your own note name", () => {
+	it("uses the edited name, cleaned", async () => {
+		const { app, created } = fakeApp({});
+		const file = await recordVisit(app, settings, {
+			place: prince,
+			tags: [],
+			projects: [],
+			visit: "2026-11-11 12:40",
+			noteName: "Prince Tea: Forest Hills?",
+		});
+		expect(file.path).toBe("Travel/Prince Tea Forest Hills.md");
+		expect(Object.keys(created)).toEqual(["Travel/Prince Tea Forest Hills.md"]);
+	});
+
+	it("adds the street when the edited name belongs to another note", async () => {
+		const { app } = fakeApp({ "Travel/Tea.md": { fsq: "other", Geolink: "10, 10" } });
+		const file = await recordVisit(app, settings, {
+			place: { ...prince, id: "new-id" },
+			tags: [],
+			projects: [],
+			visit: "2026-11-11 12:40",
+			noteName: "Tea",
+		});
+		expect(file.path).toBe("Travel/Tea (Station Square).md");
+	});
+});
+
 describe("recordVisit for past check-ins", () => {
 	it("doesn't record the same visit twice", async () => {
 		const { app, notes } = fakeApp({ "Travel/Prince Tea House.md": { fsq: prince.id, Visits: ["2017-09-13 14:52 · tea"] } });

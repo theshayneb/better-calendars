@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Platform, moment } from "obsidian";
-import { TagPicker } from "./tag-picker";
+import { TagPicker, noteNameField } from "./tag-picker";
 import type BetterCalendarsPlugin from "../main";
 import { createDailyNote, dailyNoteConfig, getDailyNote, today } from "../daily/daily-notes";
 import { FoursquareError, searchPlaces } from "./foursquare";
@@ -13,7 +13,7 @@ import {
 	swarmShout,
 	visitEntry,
 } from "./logic";
-import { addPlaceToDailyNote, listPlaceNotes, recordVisit } from "./place-notes";
+import { addPlaceToDailyNote, listPlaceNotes, recordVisit, suggestedNoteName } from "./place-notes";
 import { postToSwarm } from "./swarm";
 
 /** A better GPS fix is worth waiting for this long after the first one. */
@@ -249,6 +249,7 @@ export class CheckinModal extends Modal {
 			text: note && note.visits > 0 ? `${note.visits} visit${note.visits === 1 ? "" : "s"}` : "First visit",
 		});
 
+		const noteName = note ? null : noteNameField(contentEl, suggestedNoteName(this.app, settings, place));
 		let checkBtn: HTMLButtonElement | null = null;
 		const noteFile = note ? this.app.vault.getFileByPath(note.path) : null;
 		const picker = new TagPicker(this.app, settings, contentEl, place, noteFile, () => {
@@ -285,6 +286,7 @@ export class CheckinModal extends Modal {
 			void this.pwCheckIn(place, {
 				tags: choice.tags,
 				projects: choice.projects,
+				noteName: noteName ? noteName() : undefined,
 				note: noteInput.value,
 				swarm: swarmBox.checked,
 			});
@@ -293,7 +295,7 @@ export class CheckinModal extends Modal {
 
 	private async pwCheckIn(
 		place: FsqPlace,
-		c: { tags: string[]; projects: string[]; note: string; swarm: boolean }
+		c: { tags: string[]; projects: string[]; noteName: string | undefined; note: string; swarm: boolean }
 	): Promise<void> {
 		const plugin = this.plugin;
 		const settings = plugin.settings;
@@ -326,6 +328,7 @@ export class CheckinModal extends Modal {
 				tags: c.tags,
 				projects: c.projects,
 				visit,
+				noteName: c.noteName,
 			});
 			done.push(`visit added to ${file.basename}`);
 

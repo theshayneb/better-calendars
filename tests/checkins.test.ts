@@ -3,6 +3,7 @@ import {
 	FsqPlace,
 	PlaceNoteInfo,
 	addMissing,
+	cleanFileName,
 	checkinTags,
 	distanceMetres,
 	googleMapsUrl,
@@ -97,6 +98,13 @@ describe("placeNoteName", () => {
 
 	it("removes characters not allowed in file names", () => {
 		expect(placeNoteName(place({ name: "Joe's: Pizza / Bar" }), () => false)).toBe("Joe's Pizza Bar");
+	});
+
+	it("makes names safe for Windows and Obsidian", () => {
+		expect(cleanFileName('Café "Le Bon" <Paris>?')).toBe("Café Le Bon Paris");
+		expect(cleanFileName("...hidden name. ")).toBe("hidden name");
+		expect(cleanFileName("CON")).toBe("CON place");
+		expect(cleanFileName("Tab\there")).toBe("Tab here");
 	});
 
 	it("gets the street without the house number", () => {

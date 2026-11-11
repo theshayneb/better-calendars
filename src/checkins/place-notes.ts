@@ -2,6 +2,7 @@ import { App, TFile, normalizePath, stringifyYaml } from "obsidian";
 import type { BetterCalendarsSettings } from "../settings";
 import { ensureFolder, joinPath } from "../util/vault";
 import {
+	cleanFileName,
 	FsqPlace,
 	PlaceNoteInfo,
 	addMissing,
@@ -86,6 +87,14 @@ export interface CheckinWrite {
 	projects: string[];
 	/** The new Visits entry. */
 	visit: string;
+	/** File name for a new note, as edited by the owner (cleaned before use). */
+	noteName?: string;
+}
+
+/** The name a new note for this place would get. */
+export function suggestedNoteName(app: App, settings: BetterCalendarsSettings, place: FsqPlace): string {
+	const folder = folderOf(settings);
+	return placeNoteName(place, (name) => app.vault.getFileByPath(joinPath(folder, `${name}.md`)) !== null);
 }
 
 /**
@@ -111,7 +120,9 @@ export async function recordVisit(
 
 	const folder = folderOf(settings);
 	const taken = (name: string) => app.vault.getFileByPath(joinPath(folder, `${name}.md`)) !== null;
-	const name = placeNoteName(w.place, taken);
+	const wanted = cleanFileName(w.noteName ?? "");
+	// The owner's own name, unless another note already has it (then the street is added, as usual).
+	const name = wanted && !taken(wanted) ? wanted : placeNoteName({ ...w.place, name: wanted || w.place.name }, taken);
 	const fm: Record<string, unknown> = {};
 	applyVisit(fm, settings, w);
 	if (folder) await ensureFolder(app, folder);

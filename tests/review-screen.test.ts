@@ -76,6 +76,16 @@ describe("the history review screen", () => {
 		expect(visibleText(el)).toContain("Add the name as plain text (not a link)");
 	});
 
+	it("lets you edit the name of a new place note, showing how it will be saved", () => {
+		const el = screen([visit("a", "2018-02-11T23:05:00Z")]);
+		const label = Array.from(el.querySelectorAll("label")).find((l) => l.textContent === "Note name")!;
+		const input = el.querySelector<HTMLInputElement>(`#${label.getAttribute("for")}`)!;
+		expect(input.value).toBe("Prince Tea House");
+		input.value = "Prince Tea: House?";
+		input.dispatchEvent(new Event("input"));
+		expect(visibleText(el)).toContain('Will be saved as "Prince Tea House"');
+	});
+
 	it("has Later, Skip and Save and next", () => {
 		const text = visibleText(screen([visit("a", "2018-02-11T23:05:00Z")]));
 		expect(text).toContain("Later");

@@ -118,13 +118,25 @@ export function placeNoteName(place: FsqPlace, isTaken: (name: string) => boolea
 	return `${name} (${place.id})`;
 }
 
+/** Characters Windows (\\ / : * ? " < > |) and Obsidian links (# ^ [ ]) don't allow in note names. */
+export const NOT_ALLOWED_IN_NAMES = '\\ / : * ? " < > | # ^ [ ]';
+
+/**
+ * A name that's safe as a note name on Windows, macOS, Linux, Android and
+ * iOS: no forbidden characters, no leading dot, no trailing dots or spaces,
+ * and not a name Windows reserves (CON, NUL, COM1, ...).
+ */
 export function cleanFileName(name: string): string {
-	return name
-		.replace(/[\\/:*?"<>|#^[\]]+/g, " ")
+	let out = name
+		// eslint-disable-next-line no-control-regex
+		.replace(/[\\/:*?"<>|#^[\]\u0000-\u001f]+/g, " ")
 		.replace(/\s+/g, " ")
 		.trim()
 		.slice(0, 120)
-		.trim();
+		.replace(/^[.\s]+/, "")
+		.replace(/[.\s]+$/, "");
+	if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(out)) out = `${out} place`;
+	return out;
 }
 
 /** Unique, case-insensitively, keeping the first spelling and order. */

@@ -478,3 +478,13 @@ textarea.bc-ci-input {
 	min-height: 36px;
 	font-size: var(--font-ui-small);
 }
+
+.bc-ci-hint {
+	margin: var(--size-4-1) 0 0;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-warning);
+}
+
+.bc-ci-hint:empty {
+	display: none;
+}

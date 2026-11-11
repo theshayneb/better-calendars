@@ -12,8 +12,8 @@ import {
 	visitsHere,
 } from "./history-logic";
 import { PlaceNoteInfo, cleanFileName, matchPlaceNote, visitEntry } from "./logic";
-import { addPlaceToDailyNote, listPlaceNotes, recordVisit } from "./place-notes";
-import { TagPicker } from "./tag-picker";
+import { addPlaceToDailyNote, listPlaceNotes, recordVisit, suggestedNoteName } from "./place-notes";
+import { TagPicker, noteNameField } from "./tag-picker";
 
 /** Progress is saved to the (synced) settings every this many check-ins, and on close. */
 const SAVE_EVERY = 10;
@@ -164,6 +164,7 @@ export class ReviewModal extends Modal {
 				: "No note yet",
 		});
 		if (c.shout) contentEl.createEl("blockquote", { cls: "bc-rv-shout", text: c.shout });
+		const noteName = note ? null : noteNameField(contentEl, suggestedNoteName(this.app, settings, place));
 
 		let saveBtn: HTMLButtonElement | null = null;
 		const noteFile = note ? this.app.vault.getFileByPath(note.path) : null;
@@ -269,6 +270,7 @@ export class ReviewModal extends Modal {
 				projects: choice.projects,
 				existingNote: noteFile,
 				placeName: place.name,
+				noteName: noteName ? noteName() : undefined,
 			});
 		});
 		saveBtn.disabled = linkBox.checked && !picker.ready();
@@ -344,6 +346,7 @@ export class ReviewModal extends Modal {
 			projects: string[];
 			existingNote: TFile | null;
 			placeName: string;
+			noteName: string | undefined;
 		}
 	): Promise<boolean> {
 		const app: App = this.app;
@@ -386,9 +389,10 @@ export class ReviewModal extends Modal {
 					tags: o.tags,
 					projects: o.projects,
 					visit: visitEntry(localStamp(item), item.shout),
+					noteName: o.noteName,
 				});
 			} else if (o.daily) {
-				placeNote = o.existingNote ?? cleanFileName(o.placeName);
+				placeNote = o.existingNote ?? o.noteName ?? cleanFileName(o.placeName);
 			}
 			// Plain text uses the place's own name.
 			if (o.asText && placeNote) placeNote = o.placeName;
