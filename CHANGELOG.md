@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.2.0] - 2026-11-11
+
+Swarm history.
+
+- New command "Catch up on Swarm history": go through your past Swarm check-ins one at a time, newest first, and choose what to bring into the vault. Each shows the date and time (in the place's local time), the place, its address, suggested tags, your original note, and your progress ("1,204 of 6,830").
+- For each check-in: "Create or link place note" (on), "Add to daily note" (on when that daily note exists; a button creates it when it doesn't), and "Apply to all N visits here" to save every visit to that place at once. When some of those days have no daily note, you're asked whether to create them.
+- Skip or Save and next; close any time. Your progress syncs, so you continue where you left off on any device.
+- Check-ins you make in the Swarm app join the same queue: the device with "Import on this device" pulls them on every refresh (once you've opened the review there). Check-ins you made from Obsidian never show up.
+- A visit that's already in a place note (same date and time) isn't added again.
+- The history itself is cached on each device (not in the synced settings), so saving your progress stays quick.
+
 ## [1.1.3] - 2026-11-11
 
 - New link `obsidian://better-calendars-checkin` opens the check-in screen, so you can start a check-in from Tasker, a home-screen shortcut or any other app. Add `?vault=Your%20Vault` to pick a vault.

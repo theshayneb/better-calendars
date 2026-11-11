@@ -219,3 +219,46 @@ export async function swarmCheckIn(
 	if (!id) throw new FoursquareError("Swarm didn't confirm the check-in.", res.status);
 	return id;
 }
+
+/** One check-in from the Swarm history, as the v2 API returns it (the fields we use). */
+export interface RawSwarmCheckin {
+	id?: string;
+	createdAt?: number;
+	timeZoneOffset?: number;
+	shout?: string;
+	type?: string;
+	venue?: {
+		id?: string;
+		name?: string;
+		url?: string;
+		location?: {
+			address?: string;
+			lat?: number;
+			lng?: number;
+			formattedAddress?: string[];
+		};
+		categories?: { id?: string; name?: string; primary?: boolean }[];
+	};
+}
+
+/** A page of the user's check-ins, newest first (up to 250). */
+export async function swarmCheckinsPage(
+	token: string,
+	offset: number,
+	limit = 250
+): Promise<{ items: RawSwarmCheckin[]; count: number }> {
+	const params = new URLSearchParams({
+		v: V2_VERSION,
+		limit: String(limit),
+		offset: String(offset),
+		sort: "newestfirst",
+	});
+	const res = await call(
+		`${V2_API}/users/self/checkins?${params.toString()}`,
+		{ headers: v2Headers(token) },
+		SWARM_BROKEN
+	);
+	const checkins = (res.json as { response?: { checkins?: { count?: number; items?: RawSwarmCheckin[] } } })
+		.response?.checkins;
+	return { items: checkins?.items ?? [], count: checkins?.count ?? 0 };
+}

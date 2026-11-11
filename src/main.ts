@@ -12,6 +12,9 @@ import { CalendarView, VIEW_TYPE_CALENDAR } from "./ui/calendar-view";
 import { ConfirmModal, CreateAheadModal } from "./ui/modals";
 import { openLocationTest } from "./checkins/location";
 import { openCheckin } from "./checkins/checkin-modal";
+import { openReview } from "./checkins/review-modal";
+import { loadHistory, refreshHistory } from "./checkins/history";
+import { pendingCheckins } from "./checkins/history-logic";
 import { finishSwarmConnect, retrySwarmQueue } from "./checkins/swarm";
 import {
 	createDailyNote,
@@ -91,6 +94,11 @@ export default class BetterCalendarsPlugin extends Plugin {
 			name: "Check in",
 			callback: () => openCheckin(this),
 		});
+		this.addCommand({
+			id: "swarm-history",
+			name: "Catch up on Swarm history",
+			callback: () => openReview(this),
+		});
 		this.registerObsidianProtocolHandler("better-calendars-swarm", (params) => {
 			void finishSwarmConnect(this, params);
 		});
@@ -136,6 +144,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 			categoryTags: { ...(loaded.categoryTags ?? {}) },
 			swarmQueue: [...(loaded.swarmQueue ?? [])],
 			swarmPostedIds: [...(loaded.swarmPostedIds ?? [])],
+			swarmReviewed: [...(loaded.swarmReviewed ?? [])],
 			nycTagAdded: true,
 		};
 		this.addNycTagOnce(loaded);
@@ -151,6 +160,30 @@ export default class BetterCalendarsPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+	}
+
+	/**
+	 * Pull check-ins made in the Swarm app into the review queue. Only on
+	 * the device with "Import on this device", and only once the history
+	 * has been loaded here (the first, full load happens when you open the
+	 * review).
+	 */
+	private async pullSwarmCheckins(): Promise<void> {
+		const s = this.settings;
+		if (!s.swarmToken || !this.importsOnThisDevice()) return;
+		try {
+			if ((await loadHistory(this)).length === 0) return;
+			const { history, added } = await refreshHistory(this);
+			if (added === 0) return;
+			const fresh = pendingCheckins(history.slice(0, added), s.swarmReviewed, s.swarmPostedIds);
+			if (fresh.length > 0) {
+				new Notice(
+					`Better Calendars: ${fresh.length} new Swarm check-in${fresh.length === 1 ? "" : "s"} to review (Catch up on Swarm history).`
+				);
+			}
+		} catch (e) {
+			console.warn("[Better Calendars] pulling Swarm check-ins failed", e);
+		}
 	}
 
 	/** Redraw the settings tab if it is open (e.g. after Swarm sign-in). */
@@ -225,6 +258,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 		} catch (e) {
 			console.warn("[Better Calendars] Swarm retry failed", e);
 		}
+		if (auto || manual) await this.pullSwarmCheckins();
 		this.refreshViews();
 	}
 

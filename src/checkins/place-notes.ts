@@ -65,6 +65,14 @@ export function propertyValues(app: App, property: string): string[] {
 	return [...counts.values()].sort((a, b) => b.n - a.n).map((c) => c.value);
 }
 
+/**
+ * Notes created in this session, by Foursquare id. Obsidian reads a new
+ * note's properties a moment after it's written, so without this a second
+ * visit right after the first (e.g. "apply to all visits") wouldn't find
+ * the note and would create a duplicate.
+ */
+const justCreated = new Map<string, string>();
+
 export interface CheckinWrite {
 	place: FsqPlace;
 	/** Tags to add (existing tags are kept). */
@@ -85,9 +93,10 @@ export async function recordVisit(
 	settings: BetterCalendarsSettings,
 	w: CheckinWrite
 ): Promise<TFile> {
-	const notes = listPlaceNotes(app, settings);
-	const match = matchPlaceNote(w.place, notes);
-	const existing = match ? app.vault.getFileByPath(match.path) : null;
+	const recent = justCreated.get(w.place.id);
+	const recentFile = recent ? app.vault.getFileByPath(recent) : null;
+	const match = recentFile ? null : matchPlaceNote(w.place, listPlaceNotes(app, settings));
+	const existing = recentFile ?? (match ? app.vault.getFileByPath(match.path) : null);
 	if (existing) {
 		await app.fileManager.processFrontMatter(existing, (fm: Record<string, unknown>) => {
 			applyVisit(fm, settings, w);
@@ -102,7 +111,9 @@ export async function recordVisit(
 	applyVisit(fm, settings, w);
 	if (folder) await ensureFolder(app, folder);
 	// Written in one go (not empty first), so Templater's new-file trigger has nothing to fill in.
-	return app.vault.create(joinPath(folder, `${name}.md`), `---\n${stringifyYaml(fm)}---\n`);
+	const file = await app.vault.create(joinPath(folder, `${name}.md`), `---\n${stringifyYaml(fm)}---\n`);
+	justCreated.set(w.place.id, file.path);
+	return file;
 }
 
 function applyVisit(fm: Record<string, unknown>, settings: BetterCalendarsSettings, w: CheckinWrite): void {
@@ -119,7 +130,10 @@ function applyVisit(fm: Record<string, unknown>, settings: BetterCalendarsSettin
 		links.push(googleMapsUrl(place));
 	}
 	fm[LINK] = links;
-	fm[VISITS] = [...asList(fm[VISITS]), w.visit];
+	// The same visit (same date and time) is never recorded twice.
+	const visits = asList(fm[VISITS]);
+	const stamp = w.visit.slice(0, 16);
+	fm[VISITS] = visits.some((v) => v.slice(0, 16) === stamp) ? visits : [...visits, w.visit];
 	if (typeof fm[FM_FSQ] !== "string" || !fm[FM_FSQ]) fm[FM_FSQ] = place.id;
 }
 
@@ -132,15 +146,20 @@ export async function addPlaceToDailyNote(
 	app: App,
 	settings: BetterCalendarsSettings,
 	daily: TFile,
-	placeNote: TFile
+	/** The place note, or just the place's name when it has no note. */
+	placeNote: TFile | string
 ): Promise<boolean> {
 	const prop = settings.dailyPlacesProperty.trim() || "Places";
-	const link = `[[${app.metadataCache.fileToLinktext(placeNote, daily.path, true)}]]`;
+	const link =
+		typeof placeNote === "string"
+			? `[[${placeNote}]]`
+			: `[[${app.metadataCache.fileToLinktext(placeNote, daily.path, true)}]]`;
+	const basename = typeof placeNote === "string" ? placeNote : placeNote.basename;
 	let added = false;
 	await app.fileManager.processFrontMatter(daily, (fm: Record<string, unknown>) => {
 		const list = asList(fm[prop]);
 		const keys = new Set(list.map(linkKey));
-		if (keys.has(linkKey(link)) || keys.has(placeNote.basename.toLowerCase())) return;
+		if (keys.has(linkKey(link)) || keys.has(basename.toLowerCase())) return;
 		fm[prop] = [...list, link];
 		added = true;
 	});

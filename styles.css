@@ -409,3 +409,49 @@ textarea.bc-ci-input {
 	justify-content: flex-end;
 	gap: var(--size-4-2);
 }
+
+/* Swarm history review */
+
+.bc-rv-bar {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--background-modifier-border);
+	overflow: hidden;
+}
+
+.bc-rv-bar-fill {
+	height: 100%;
+	width: var(--bc-progress, 0%);
+	background: var(--interactive-accent);
+}
+
+.bc-rv-place {
+	margin: var(--size-4-1) 0;
+}
+
+.bc-rv-shout {
+	margin: var(--size-4-2) 0;
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	font-style: italic;
+}
+
+.bc-rv-create-daily {
+	margin: 0 0 var(--size-4-2) 28px;
+}
+
+.bc-rv-buttons {
+	display: flex;
+	gap: var(--size-4-3);
+	margin-top: var(--size-4-4);
+}
+
+.bc-rv-buttons button {
+	flex: 1;
+	min-height: 48px;
+}
+
+.bc-rv-buttons button.mod-cta {
+	flex: 2;
+}

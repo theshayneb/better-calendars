@@ -120,6 +120,18 @@ fsq: 4b8f9c2af964a520a6f533e3
 
 **Swarm.** When "Also check in on Swarm" is ticked, the check-in is posted publicly to your Swarm account, with your note as the shout. Without a connection (no signal, Foursquare down), the visit is still saved and the Swarm post is retried on the next refresh, by the same device only.
 
+### Swarm history
+
+Run **Catch up on Swarm history** (command palette, or the "Catch up" button in the settings) to go through your past Swarm check-ins one at a time, newest first. The first time, it loads your whole history from Swarm, which takes a moment.
+
+For each check-in you see the date and time (the place's local time), the place, its address, suggested tags and your original note, plus your progress ("1,204 of 6,830"). Choose:
+
+- **Create or link place note**: records the visit in the place's note, like a check-in.
+- **Add to daily note YYYY-MM-DD**: adds the place to that day's `Places`. On when the daily note exists; when it doesn't, a button creates it from your template.
+- **Apply to all N visits here**: saves every visit to this place at once. If some of those days have no daily note, you're asked whether to create them.
+
+Then **Skip** or **Save and next**. Close the review any time; your progress syncs, so you can continue on another device. New check-ins you make in the Swarm app join the queue (pulled by the device with "Import on this device" on); check-ins you made from Obsidian never appear.
+
 ### Setting up check-ins
 
 1. In the [Foursquare developer console](https://foursquare.com/developers/), open your project, go to **Service API Keys** and generate a key (for place search). Copy it right away; it is shown only once. This is not the Client Secret.

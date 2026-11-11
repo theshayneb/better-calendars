@@ -90,6 +90,8 @@ export interface BetterCalendarsSettings {
 	swarmQueue: QueuedSwarmCheckin[];
 	/** Swarm check-in ids made from Obsidian (so the history review skips them). */
 	swarmPostedIds: string[];
+	/** Swarm check-in ids already reviewed (saved or skipped) in "Catch up on Swarm history". */
+	swarmReviewed: string[];
 }
 
 export interface QueuedSwarmCheckin {
@@ -157,6 +159,7 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	lastLocation: null,
 	swarmQueue: [],
 	swarmPostedIds: [],
+	swarmReviewed: [],
 };
 
 export function normalizeCalendar(raw: unknown): CalendarSource {

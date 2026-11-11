@@ -1,4 +1,5 @@
-import { AbstractInputSuggest, App, Modal, Notice, Platform, moment } from "obsidian";
+import { App, Modal, Notice, Platform, moment } from "obsidian";
+import { TagPicker } from "./tag-picker";
 import type BetterCalendarsPlugin from "../main";
 import { createDailyNote, dailyNoteConfig, getDailyNote, today } from "../daily/daily-notes";
 import { FoursquareError, searchPlaces } from "./foursquare";
@@ -7,16 +8,12 @@ import {
 	FsqPlace,
 	LatLng,
 	PlaceNoteInfo,
-	checkinTags,
 	distanceMetres,
-	guessTag,
-	linkKey,
 	matchPlaceNote,
-	normalizeTag,
 	swarmShout,
 	visitEntry,
 } from "./logic";
-import { addPlaceToDailyNote, listPlaceNotes, propertyValues, recordVisit } from "./place-notes";
+import { addPlaceToDailyNote, listPlaceNotes, recordVisit } from "./place-notes";
 import { postToSwarm } from "./swarm";
 
 /** A better GPS fix is worth waiting for this long after the first one. */
@@ -24,41 +21,8 @@ const REFINE_MS = 8000;
 /** Search again when a better fix is this far from the one we searched with. */
 const RESEARCH_METRES = 60;
 
-/** Suggests values already used in a property (e.g. Projects). */
-class ValueSuggest extends AbstractInputSuggest<string> {
-	constructor(
-		app: App,
-		private readonly pwInput: HTMLInputElement,
-		private readonly pwValues: string[],
-		private readonly pwOnPick: (value: string) => void
-	) {
-		super(app, pwInput);
-	}
-
-	protected getSuggestions(query: string): string[] {
-		const q = query.trim().toLowerCase();
-		const hits = this.pwValues.filter((v) => v.toLowerCase().includes(q)).slice(0, 30);
-		const typed = query.trim();
-		if (typed && !hits.some((h) => h.toLowerCase() === typed.toLowerCase())) {
-			hits.push(typed);
-		}
-		return hits;
-	}
-
-	renderSuggestion(value: string, el: HTMLElement): void {
-		const isNew = !this.pwValues.some((v) => v.toLowerCase() === value.toLowerCase());
-		el.setText(isNew ? `Use "${value}" as a new value` : value);
-	}
-
-	selectSuggestion(value: string): void {
-		this.pwInput.value = "";
-		this.pwOnPick(value);
-		this.close();
-	}
-}
-
 /** Asks a yes/no question; resolves true for the first button. */
-function ask(app: App, title: string, text: string, yes: string, no: string): Promise<boolean> {
+export function ask(app: App, title: string, text: string, yes: string, no: string): Promise<boolean> {
 	return new Promise((resolve) => {
 		let answered = false;
 		const modal = new (class extends Modal {
@@ -282,162 +246,11 @@ export class CheckinModal extends Modal {
 			text: note && note.visits > 0 ? `${note.visits} visit${note.visits === 1 ? "" : "s"}` : "First visit",
 		});
 
-		// The category's remembered tag, or a question when there is none yet.
-		const category = place.categories[0] ?? null;
-		const remembered = category ? settings.categoryTags[category.id] : undefined;
-		/** undefined = not chosen yet; "" = no tag for this category. */
-		let categoryTag: string | undefined = remembered?.tag;
-		const extras = new Set<string>();
-		/** Untick the remembered tag for this place only (the mapping stays). */
-		let useCategoryTag = true;
-
-		const tagsBox = contentEl.createDiv({ cls: "bc-ci-section" });
-		let promptBox: HTMLElement | null = null;
-		if (category && remembered === undefined) {
-			categoryTag = guessTag(category.name, settings.checkinTags) ?? undefined;
-			promptBox = tagsBox.createDiv({ cls: "bc-ci-prompt" });
-		}
-		const chipsLabel = tagsBox.createEl("p", { cls: "bc-ci-label" });
-		const chips = tagsBox.createDiv({ cls: "bc-ci-chips" });
-
-		const render = () => {
-			if (promptBox && category) {
-				promptBox.empty();
-				promptBox.createEl("p", { cls: "bc-ci-prompt-title", text: `Which tag for ${category.name}?` });
-				promptBox.createEl("p", {
-					cls: "bc-ci-prompt-text",
-					text: `Your choice is remembered for every ${category.name}. You can change it in the settings.`,
-				});
-				const row = promptBox.createDiv({ cls: "bc-ci-chips" });
-				for (const t of settings.checkinTags) {
-					chip(row, t, categoryTag === t, () => {
-						categoryTag = t;
-						extras.delete(t);
-						render();
-					});
-				}
-				chip(row, "No tag for this category", categoryTag === "", () => {
-					categoryTag = "";
-					render();
-				});
-				addNewChip(row, (t) => {
-					categoryTag = t;
-					render();
-				});
-			}
-
-			const lower = (t: string) => t.toLowerCase();
-			const always = new Set(settings.alwaysTags.map(lower));
-			const chosen = [useCategoryTag ? categoryTag : "", ...extras].filter((t): t is string => Boolean(t));
-			const chosenKeys = new Set(chosen.map(lower));
-			chipsLabel.setText(
-				category && categoryTag && remembered
-					? `Tags · ${categoryTag} is remembered for every ${category.name}`
-					: "Tags"
-			);
-			chips.empty();
-			for (const t of settings.alwaysTags) fixedChip(chips, `${t} · always`);
-			if (categoryTag && category) {
-				if (promptBox) fixedChip(chips, `${categoryTag} · for ${category.name}`, true);
-				else {
-					const tag = categoryTag;
-					chip(chips, useCategoryTag ? `✓ ${tag}` : tag, useCategoryTag, () => {
-						useCategoryTag = !useCategoryTag;
-						render();
-					}).setAttr("aria-label", `${tag}, remembered for every ${category.name}`);
-				}
-			}
-			const impliedShown = new Set<string>();
-			for (const c of chosen) {
-				for (const t of impliedTagsOf(settings.impliedTags, c)) {
-					const k = lower(t);
-					if (always.has(k) || chosenKeys.has(k) || impliedShown.has(k)) continue;
-					fixedChip(chips, `${t} · with ${c}`, true);
-					impliedShown.add(k);
-				}
-			}
-			for (const t of settings.checkinTags) {
-				const k = lower(t);
-				if (k === lower(categoryTag ?? "") || always.has(k) || impliedShown.has(k)) continue;
-				chip(chips, t, extras.has(t), () => {
-					if (extras.has(t)) extras.delete(t);
-					else extras.add(t);
-					render();
-				});
-			}
-			addNewChip(chips, (t) => {
-				extras.add(t);
-				render();
-			});
-			checkBtn.disabled = Boolean(category) && categoryTag === undefined;
-		};
-
-		const addNewChip = (row: HTMLElement, onAdd: (tag: string) => void) => {
-			const btn = row.createEl("button", { cls: "bc-ci-chip bc-ci-chip-new", text: "+ new" });
-			btn.onclick = () => {
-				btn.replaceWith(
-					(() => {
-						const input = createEl("input", { cls: "bc-ci-new-tag", attr: { placeholder: "New tag", "aria-label": "New tag" } });
-						const done = () => {
-							const t = normalizeTag(input.value);
-							if (t) {
-								if (!settings.checkinTags.some((x) => x.toLowerCase() === t.toLowerCase())) {
-									settings.checkinTags.push(t);
-								}
-								onAdd(t);
-							} else render();
-						};
-						input.addEventListener("keydown", (ev) => {
-							if (ev.key === "Enter") done();
-							if (ev.key === "Escape") render();
-						});
-						input.addEventListener("blur", done);
-						window.setTimeout(() => input.focus(), 20);
-						return input;
-					})()
-				);
-			};
-		};
-
-		// Projects: existing values stay; picked ones are added.
-		const projectsBox = contentEl.createDiv({ cls: "bc-ci-section" });
-		projectsBox.createEl("label", { cls: "bc-ci-label", text: "Projects", attr: { for: "bc-ci-projects" } });
-		const projectChips = projectsBox.createDiv({ cls: "bc-ci-chips" });
+		let checkBtn: HTMLButtonElement | null = null;
 		const noteFile = note ? this.app.vault.getFileByPath(note.path) : null;
-		const existingProjects = noteFile
-			? listValues(this.app.metadataCache.getFileCache(noteFile)?.frontmatter?.Projects)
-			: [];
-		const picked: string[] = [];
-		const renderProjects = () => {
-			projectChips.empty();
-			for (const p of existingProjects) fixedChip(projectChips, p);
-			for (const p of picked) {
-				const c = chip(projectChips, `${p} ×`, true, () => {
-					picked.splice(picked.indexOf(p), 1);
-					renderProjects();
-				});
-				c.setAttr("aria-label", `Remove ${p}`);
-			}
-		};
-		const projectInput = projectsBox.createEl("input", {
-			cls: "bc-ci-input",
-			attr: { id: "bc-ci-projects", placeholder: "Neighbourhood or project", type: "text" },
+		const picker = new TagPicker(this.app, settings, contentEl, place, noteFile, () => {
+			if (checkBtn) checkBtn.disabled = !picker.ready();
 		});
-		const addProject = (value: string) => {
-			const v = value.trim();
-			if (!v) return;
-			const keys = new Set([...existingProjects, ...picked].map(linkKey));
-			if (!keys.has(linkKey(v))) picked.push(v);
-			renderProjects();
-		};
-		new ValueSuggest(this.app, projectInput, propertyValues(this.app, "Projects"), addProject);
-		projectInput.addEventListener("keydown", (ev) => {
-			if (ev.key === "Enter") {
-				addProject(projectInput.value);
-				projectInput.value = "";
-			}
-		});
-		renderProjects();
 
 		const noteBox = contentEl.createDiv({ cls: "bc-ci-section" });
 		noteBox.createEl("label", {
@@ -456,37 +269,32 @@ export class CheckinModal extends Modal {
 			connected ? " Also check in on Swarm (public)" : " Also check in on Swarm (connect Swarm in the settings)"
 		);
 
-		const checkBtn = contentEl.createEl("button", { cls: "mod-cta bc-ci-go", text: "Check in" });
+		checkBtn = contentEl.createEl("button", { cls: "mod-cta bc-ci-go", text: "Check in" });
+		checkBtn.disabled = !picker.ready();
 		checkBtn.onclick = () => {
-			if (category && categoryTag === undefined) {
-				new Notice(`Pick a tag for ${category.name} first, or "No tag for this category".`);
+			if (!picker.ready()) {
+				new Notice(`Pick a tag for ${picker.categoryName()} first, or "No tag for this category".`);
 				return;
 			}
-			if (projectInput.value.trim()) addProject(projectInput.value);
-			const chosen = [useCategoryTag ? categoryTag : "", ...extras].filter((t): t is string => Boolean(t));
+			const choice = picker.result();
+			picker.rememberCategory();
 			this.close();
 			void this.pwCheckIn(place, {
-				categoryTag,
-				tags: checkinTags(settings.alwaysTags, chosen, settings.impliedTags),
-				projects: picked,
+				tags: choice.tags,
+				projects: choice.projects,
 				note: noteInput.value,
 				swarm: swarmBox.checked,
 			});
 		};
-		render();
 	}
 
 	private async pwCheckIn(
 		place: FsqPlace,
-		c: { categoryTag: string | undefined; tags: string[]; projects: string[]; note: string; swarm: boolean }
+		c: { tags: string[]; projects: string[]; note: string; swarm: boolean }
 	): Promise<void> {
 		const plugin = this.plugin;
 		const settings = plugin.settings;
 		const app = this.app;
-		const category = place.categories[0];
-		if (category && c.categoryTag !== undefined) {
-			settings.categoryTags[category.id] = { name: category.name, tag: c.categoryTag };
-		}
 		settings.lastLocation = { lat: place.lat, lng: place.lng };
 
 		const done: string[] = [];
@@ -536,32 +344,14 @@ export class CheckinModal extends Modal {
 	}
 }
 
-function chip(row: HTMLElement, text: string, on: boolean, onClick: () => void): HTMLButtonElement {
-	const b = row.createEl("button", { cls: `bc-ci-chip${on ? " is-on" : ""}`, text });
-	b.setAttr("aria-pressed", String(on));
-	b.onclick = onClick;
-	return b;
-}
 
-function fixedChip(row: HTMLElement, text: string, accent = false): void {
-	row.createSpan({ cls: `bc-ci-chip bc-ci-chip-fixed${accent ? " is-auto" : ""}`, text });
-}
 
-function impliedTagsOf(implied: Record<string, string[]>, tag: string): string[] {
-	const k = tag.toLowerCase();
-	for (const [key, list] of Object.entries(implied)) if (key.toLowerCase() === k) return list;
-	return [];
-}
 
 function formatDistance(m: number | null): string {
 	if (m === null) return "";
 	return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
 }
 
-function listValues(v: unknown): string[] {
-	if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string" && x.trim() !== "");
-	return typeof v === "string" && v.trim() ? [v] : [];
-}
 
 export function openCheckin(plugin: BetterCalendarsPlugin): void {
 	new CheckinModal(plugin).open();

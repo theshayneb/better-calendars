@@ -115,6 +115,24 @@ describe("recordVisit", () => {
 	});
 });
 
+describe("recordVisit for past check-ins", () => {
+	it("doesn't record the same visit twice", async () => {
+		const { app, notes } = fakeApp({ "Travel/Prince Tea House.md": { fsq: prince.id, Visits: ["2017-09-13 14:52 · tea"] } });
+		await recordVisit(app, settings, { place: prince, tags: [], projects: [], visit: "2017-09-13 14:52 · tea" });
+		expect(notes["Travel/Prince Tea House.md"]!.Visits).toEqual(["2017-09-13 14:52 · tea"]);
+	});
+
+	it("finds a note it just created, before Obsidian has read it", async () => {
+		const { app, created } = fakeApp({});
+		const place = { ...prince, id: "fresh-1", name: "Brand New Cafe" };
+		const first = await recordVisit(app, settings, { place, tags: [], projects: [], visit: "2017-01-01 10:00" });
+		// The fake metadata cache doesn't know the new note, like Obsidian right after a write.
+		const second = await recordVisit(app, settings, { place, tags: [], projects: [], visit: "2017-02-01 10:00" });
+		expect(second.path).toBe(first.path);
+		expect(Object.keys(created)).toEqual(["Travel/Brand New Cafe.md"]);
+	});
+});
+
 describe("addPlaceToDailyNote", () => {
 	it("adds the place once per day, creating the Places property when needed", async () => {
 		const { app, notes } = fakeApp({ "Daily/2026-11-11.md": {}, "Travel/Prince Tea House.md": {} });
@@ -124,5 +142,12 @@ describe("addPlaceToDailyNote", () => {
 		expect(await addPlaceToDailyNote(app, settings, daily, placeNote)).toBe(true);
 		expect(await addPlaceToDailyNote(app, settings, daily, placeNote)).toBe(false);
 		expect(notes["Daily/2026-11-11.md"]).toEqual({ Places: ["[[Prince Tea House]]"] });
+	});
+
+	it("links by name when the place has no note", async () => {
+		const { app, notes } = fakeApp({ "Daily/2017-09-13.md": { Places: ["[[Riverside Park]]"] } });
+		const daily = (app as { vault: { getFileByPath(p: string): TFile } }).vault.getFileByPath("Daily/2017-09-13.md");
+		expect(await addPlaceToDailyNote(app, settings, daily, "Prince Tea House")).toBe(true);
+		expect(notes["Daily/2017-09-13.md"]).toEqual({ Places: ["[[Riverside Park]]", "[[Prince Tea House]]"] });
 	});
 });

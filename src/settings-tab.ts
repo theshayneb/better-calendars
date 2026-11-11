@@ -10,6 +10,7 @@ import { resolveTemplateFile } from "./util/vault";
 import { SWARM_REDIRECT, searchPlaces } from "./checkins/foursquare";
 import { disconnectSwarm, startSwarmConnect } from "./checkins/swarm";
 import { normalizeTag } from "./checkins/logic";
+import { openReview } from "./checkins/review-modal";
 
 export class BetterCalendarsSettingTab extends PluginSettingTab {
 	constructor(app: App, private readonly plugin: BetterCalendarsPlugin) {
@@ -529,6 +530,14 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					.setCta()
 					.onClick(() => startSwarmConnect(this.plugin))
 			);
+		}
+		if (connected) {
+			new Setting(containerEl)
+				.setName("Swarm history")
+				.setDesc(
+					`${settings.swarmReviewed.length.toLocaleString()} check-ins reviewed. New check-ins from the Swarm app are pulled in ${this.plugin.importsOnThisDevice() ? "on this device" : "on another device (\"Import on this device\" is off here)"}.`
+				)
+				.addButton((b) => b.setButtonText("Catch up").onClick(() => openReview(this.plugin)));
 		}
 		new Setting(containerEl).setName("Client ID").setDesc("For connecting Swarm only.").addText((t) =>
 			t.setValue(settings.swarmClientId).onChange(async (v) => {
