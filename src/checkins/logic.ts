@@ -128,7 +128,7 @@ export const NOT_ALLOWED_IN_NAMES = '\\ / : * ? " < > | # ^ [ ]';
  */
 export function cleanFileName(name: string): string {
 	let out = name
-		// eslint-disable-next-line no-control-regex
+		// eslint-disable-next-line no-control-regex -- control characters are not allowed in file names
 		.replace(/[\\/:*?"<>|#^[\]\u0000-\u001f]+/g, " ")
 		.replace(/\s+/g, " ")
 		.trim()
