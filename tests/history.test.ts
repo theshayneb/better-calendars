@@ -77,6 +77,11 @@ describe("the review queue", () => {
 		expect(reviewTotal(history, ["b"])).toBe(2);
 	});
 
+	it("leaves out every visit to a skipped place", () => {
+		const h = [c("1", 3, "x"), c("2", 2, "y"), c("3", 1, "x")];
+		expect(pendingCheckins(h, [], [], ["x"]).map((x) => x.id)).toEqual(["2"]);
+	});
+
 	it("finds the other visits to the same place", () => {
 		const h = [c("1", 3, "x"), c("2", 2, "y"), c("3", 1, "x")];
 		expect(visitsHere(h, "x").map((x) => x.id)).toEqual(["1", "3"]);

@@ -151,6 +151,8 @@ export default class BetterCalendarsPlugin extends Plugin {
 			swarmPostedIds: [...(loaded.swarmPostedIds ?? [])],
 			swarmReviewed: [...(loaded.swarmReviewed ?? [])],
 			swarmSkipped: [...(loaded.swarmSkipped ?? [])],
+			swarmSkippedPlaces: [...(loaded.swarmSkippedPlaces ?? [])],
+			ratingOptions: [...(loaded.ratingOptions ?? DEFAULT_SETTINGS.ratingOptions)],
 			nycTagAdded: true,
 		};
 		this.addNycTagOnce(loaded);
@@ -184,7 +186,8 @@ export default class BetterCalendarsPlugin extends Plugin {
 			const fresh = pendingCheckins(
 				history.slice(0, added),
 				[...s.swarmReviewed, ...s.swarmSkipped],
-				s.swarmPostedIds
+				s.swarmPostedIds,
+				s.swarmSkippedPlaces
 			);
 			if (fresh.length > 0) {
 				new Notice(

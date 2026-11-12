@@ -69,15 +69,20 @@ export function mergeHistory(cached: SwarmCheckin[], fresh: SwarmCheckin[]): Swa
 
 /**
  * What's left to review, newest first: everything except check-ins already
- * reviewed (saved or skipped) and those made from Obsidian.
+ * reviewed (saved or skipped), those made from Obsidian, and every visit to
+ * a skipped place.
  */
 export function pendingCheckins(
 	history: SwarmCheckin[],
 	reviewed: Iterable<string>,
-	postedFromObsidian: Iterable<string>
+	postedFromObsidian: Iterable<string>,
+	skippedPlaces: Iterable<string> = []
 ): SwarmCheckin[] {
 	const done = new Set([...reviewed, ...postedFromObsidian]);
-	return history.filter((c) => !done.has(c.id)).sort((a, b) => b.at - a.at);
+	const places = new Set(skippedPlaces);
+	return history
+		.filter((c) => !done.has(c.id) && !(c.place && places.has(c.place.id)))
+		.sort((a, b) => b.at - a.at);
 }
 
 /** How many check-ins count toward the progress bar (Obsidian's own excluded). */

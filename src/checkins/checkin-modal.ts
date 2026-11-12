@@ -255,7 +255,7 @@ export class CheckinModal extends Modal {
 		const picker = new TagPicker(this.app, settings, contentEl, place, noteFile, () => {
 			if (checkBtn) checkBtn.disabled = !picker.ready();
 		});
-		const rating = ratingField(contentEl, this.app, currentRating(this.app, noteFile));
+		const rating = ratingField(contentEl, settings.ratingOptions, currentRating(this.app, noteFile));
 
 		const noteBox = contentEl.createDiv({ cls: "bc-ci-section" });
 		noteBox.createEl("label", {

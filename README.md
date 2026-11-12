@@ -115,7 +115,7 @@ fsq: 4b8f9c2af964a520a6f533e3
 - An existing note with the same name and coordinates within about 150 m (or the same `fsq`) is used instead of creating a new one. Existing values are kept: only empty properties are filled, tags and links are added to, and `Visits` only grows.
 - For a new place you can change the **Note name** before saving; characters Windows and Obsidian don't allow are removed. Renaming a place note later is fine too: places are recognised by `fsq`, not by name.
 - `Projects` is yours to fill in: the check-in screen suggests values you've already used in `Projects` anywhere in the vault.
-- **Rating**: the check-in and review screens offer the ratings you already use in `Rating` properties (e.g. 🩷) as chips, plus "+ new". Your choice is saved to the place note; leaving it empty keeps any rating the note has.
+- **Rating**: the check-in and review screens offer your rating choices (settings: "Rating choices", default 💣, ⭐⭐, ⭐⭐⭐, ⭐⭐⭐⭐, 🩷) as chips. Your choice is saved to the place note; leaving it empty keeps any rating the note has.
 - `fsq` is the Foursquare place ID, used to recognise the place and to post to Swarm. It's hidden in the properties panel ("Hide fsq property").
 
 **Daily note.** The place is added to the daily note's `Places` property (a list of links, once per day). If today's daily note doesn't exist yet, you're asked whether to create it.
@@ -133,7 +133,7 @@ For each check-in you see the date and time (the place's local time), the place,
 - **Add the name as plain text (not a link)**: optional, under the daily note box, for when you want the name in `Places` without a link.
 - **Apply to all N visits here**: saves every visit to this place at once. If some of those days have no daily note, you're asked whether to create them.
 
-Then **Save and next**, **Later** (comes back next time, nothing is recorded) or **Skip** (not shown again; "Bring skipped back" in the settings undoes that). Close the review any time; your progress syncs, so you can continue on another device. New check-ins you make in the Swarm app join the queue (pulled by the device with "Import on this device" on); check-ins you made from Obsidian never appear.
+Then **Save and next**, **Later** (comes back next time, nothing is recorded) or **Skip place** (none of that place's visits are shown again; "Bring skipped back" in the settings undoes that). Close the review any time; your progress syncs, so you can continue on another device. New check-ins you make in the Swarm app join the queue (pulled by the device with "Import on this device" on); check-ins you made from Obsidian never appear.
 
 ### Setting up check-ins
 

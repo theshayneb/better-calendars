@@ -336,16 +336,16 @@ export function noteNameField(container: HTMLElement, suggested: string): () => 
 }
 
 /**
- * "Rating": the values you already use in Rating properties (most used
- * first) as chips, plus "+ new". Starts on the note's current rating.
+ * "Rating": your rating choices (settings), in order, as chips. Starts on
+ * the note's current rating (shown too when it's not one of the choices).
  * Returns a getter: the chosen rating, or "" for none (nothing is removed).
  */
-export function ratingField(container: HTMLElement, app: App, current: string): () => string {
+export function ratingField(container: HTMLElement, options: string[], current: string): () => string {
 	const box = container.createDiv({ cls: "bc-ci-section" });
 	box.createEl("p", { cls: "bc-ci-label", text: "Rating" });
 	const row = box.createDiv({ cls: "bc-ci-chips" });
-	const values = propertyValues(app, RATING);
-	if (current && !values.includes(current)) values.unshift(current);
+	const values = [...options];
+	if (current && !values.includes(current)) values.push(current);
 	let chosen = current;
 	const render = () => {
 		row.empty();
@@ -355,34 +355,6 @@ export function ratingField(container: HTMLElement, app: App, current: string): 
 				render();
 			});
 		}
-		const add = row.createEl("button", { cls: "bc-ci-chip bc-ci-chip-new", text: "+ new" });
-		add.onclick = () => {
-			const input = createEl("input", {
-				cls: "bc-ci-new-tag",
-				attr: { placeholder: "New rating", "aria-label": "New rating" },
-			});
-			let finished = false;
-			const done = () => {
-				if (finished) return;
-				finished = true;
-				const v = input.value.trim();
-				if (v) {
-					if (!values.includes(v)) values.push(v);
-					chosen = v;
-				}
-				render();
-			};
-			input.addEventListener("keydown", (ev) => {
-				if (ev.key === "Enter") done();
-				if (ev.key === "Escape") {
-					finished = true;
-					render();
-				}
-			});
-			input.addEventListener("blur", done);
-			add.replaceWith(input);
-			window.setTimeout(() => input.focus(), 20);
-		};
 	};
 	render();
 	return () => chosen;

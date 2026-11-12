@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.1] - 2026-11-12
+
+- Swarm history review: "Skip" is now "Skip place": none of that place's visits are shown again, including new check-ins there from the Swarm app. Places you skipped before this update are turned into skipped places the next time you open the review. "Bring skipped back" in the settings undoes all skips.
+- Rating chips are now a fixed list you set in the settings ("Rating choices"), shown in that order. The default is 💣, ⭐⭐, ⭐⭐⭐, ⭐⭐⭐⭐, 🩷. A note's existing rating that isn't one of them is still shown.
+
 ## [1.3.0] - 2026-11-11
 
 - Rating: the check-in and history review screens have a Rating field with the ratings you already use in your notes' `Rating` property (most used first) as chips, plus "+ new". It starts on the note's current rating and is saved to the place note; leaving it empty never removes a rating.

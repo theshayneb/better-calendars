@@ -39,7 +39,7 @@ function screen(history: SwarmCheckin[], notes: Record<string, Record<string, un
 	const plugin = {
 		app,
 		settings: {
-			...DEFAULT_SETTINGS,
+			...structuredClone(DEFAULT_SETTINGS),
 			placesFolder: "Travel",
 			swarmToken: "token",
 			categoryTags: { "cat-tea": { name: "Tea Room", tag: "tea" } },
@@ -100,23 +100,49 @@ describe("the history review screen", () => {
 		expect(visibleText(el)).toContain('Will be saved as "Prince Tea House"');
 	});
 
-	it("offers the ratings already used in the vault, starting on the note's own", () => {
-		const el = screen([visit("a", "2018-02-11T23:05:00Z")], {
-			"Travel/Prince Tea House.md": { Geolink: "40.7222, -73.8439", Rating: "🩷🩷" },
-			"Travel/A.md": { Rating: "🩷" },
-			"Travel/B.md": { Rating: "🩷" },
-		});
+	const ratingChips = (el: HTMLElement) => {
 		const label = Array.from(el.querySelectorAll("p")).find((p) => p.textContent === "Rating")!;
-		const chips = Array.from(label.nextElementSibling!.querySelectorAll("button")).map((b) => [
+		return Array.from(label.nextElementSibling!.querySelectorAll("button")).map((b) => [
 			b.textContent,
 			b.getAttribute("aria-pressed"),
 		]);
-		expect(chips).toEqual([
+	};
+
+	it("offers exactly your rating choices, in order, starting on the note's own", () => {
+		const el = screen([visit("a", "2018-02-11T23:05:00Z")], {
+			"Travel/Prince Tea House.md": { Geolink: "40.7222, -73.8439", Rating: "⭐⭐⭐" },
+			"Travel/A.md": { Rating: "something else" },
+		});
+		expect(ratingChips(el)).toEqual([
+			["💣", "false"],
+			["⭐⭐", "false"],
+			["⭐⭐⭐", "true"],
+			["⭐⭐⭐⭐", "false"],
 			["🩷", "false"],
-			["🩷🩷", "true"],
-			["+ new", null],
 		]);
 		expect(visibleText(el)).toContain("Note exists: Prince Tea House");
+	});
+
+	it("still shows a note's rating that isn't one of the choices", () => {
+		const el = screen([visit("a", "2018-02-11T23:05:00Z")], {
+			"Travel/Prince Tea House.md": { Geolink: "40.7222, -73.8439", Rating: "🩷🩷" },
+		});
+		expect(ratingChips(el).at(-1)).toEqual(["🩷🩷", "true"]);
+	});
+
+	it("Skip place skips every visit to that place", () => {
+		const other = { ...visit("c", "2016-01-01T12:00:00Z"), place: { ...place, id: "venue-2", name: "Riverside Park" } };
+		const el = screen([visit("a", "2018-02-11T23:05:00Z"), visit("b", "2017-06-03T18:22:00Z"), other]);
+		const skip = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Skip place")!;
+		skip.click();
+		return new Promise<void>((done) =>
+			setTimeout(() => {
+				const text = visibleText(el);
+				expect(text).toContain("Riverside Park");
+				expect(text).not.toContain("Prince Tea House");
+				done();
+			}, 0)
+		);
 	});
 
 	it("can link the visit to a note found by search", () => {

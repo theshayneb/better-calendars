@@ -52,6 +52,7 @@ export class ReviewModal extends Modal {
 		})
 			.then(({ history }) => {
 				this.pwHistory = history;
+				this.pwMigrateSkipped();
 				this.pwNext();
 			})
 			.catch((e: unknown) => {
@@ -67,9 +68,35 @@ export class ReviewModal extends Modal {
 		if (this.pwUnsaved > 0) void this.plugin.saveSettings();
 	}
 
+	/**
+	 * Before 1.3.1, Skip recorded single check-ins. Skip now means the whole
+	 * place, so turn those into skipped places.
+	 */
+	private pwMigrateSkipped(): void {
+		const s = this.plugin.settings;
+		if (s.swarmSkipped.length === 0) return;
+		const byId = new Map(this.pwHistory.map((c) => [c.id, c]));
+		const keep: string[] = [];
+		for (const id of s.swarmSkipped) {
+			const venue = byId.get(id)?.place?.id;
+			if (venue) {
+				if (!s.swarmSkippedPlaces.includes(venue)) s.swarmSkippedPlaces.push(venue);
+			} else keep.push(id);
+		}
+		if (keep.length !== s.swarmSkipped.length) {
+			s.swarmSkipped = keep;
+			void this.plugin.saveSettings();
+		}
+	}
+
 	private pwRecompute(): void {
 		const s = this.plugin.settings;
-		const pending = pendingCheckins(this.pwHistory, [...s.swarmReviewed, ...s.swarmSkipped], s.swarmPostedIds);
+		const pending = pendingCheckins(
+			this.pwHistory,
+			[...s.swarmReviewed, ...s.swarmSkipped],
+			s.swarmPostedIds,
+			s.swarmSkippedPlaces
+		);
 		// "Later" ones go to the end of the queue.
 		const later = new Set(this.pwLater);
 		this.pwPending = [
@@ -194,7 +221,7 @@ export class ReviewModal extends Modal {
 		const picker = new TagPicker(this.app, settings, contentEl, place, noteFile, () => {
 			if (saveBtn) saveBtn.disabled = linkBox.checked && !picker.ready();
 		});
-		const rating = ratingField(contentEl, this.app, currentRating(this.app, noteFile));
+		const rating = ratingField(contentEl, settings.ratingOptions, currentRating(this.app, noteFile));
 
 		// Checkboxes
 		const linkRow = contentEl.createEl("label", { cls: "bc-ci-check" });
@@ -307,8 +334,8 @@ export class ReviewModal extends Modal {
 		const row = this.contentEl.createDiv({ cls: "bc-rv-buttons" });
 		const later = row.createEl("button", { text: "Later" });
 		later.setAttr("aria-label", "Later: comes back next time");
-		const skip = row.createEl("button", { text: "Skip" });
-		skip.setAttr("aria-label", "Skip: don't show this one again");
+		const skip = row.createEl("button", { text: this.pwPending[0]?.place ? "Skip place" : "Skip" });
+		skip.setAttr("aria-label", "Skip this place: none of its visits are shown again");
 		const save = row.createEl("button", { cls: "mod-cta", text: picker ? "Save and next" : "Next" });
 		const current = this.pwPending[0];
 		later.onclick = () => {
@@ -321,8 +348,14 @@ export class ReviewModal extends Modal {
 		skip.onclick = async () => {
 			if (this.pwBusy || !current) return;
 			this.pwBusy = true;
-			const skipped = this.plugin.settings.swarmSkipped;
-			if (!skipped.includes(current.id)) skipped.push(current.id);
+			// Skip means the place: none of its visits come back (a check-in without a place is skipped on its own).
+			const s = this.plugin.settings;
+			const venue = current.place?.id;
+			if (venue) {
+				if (!s.swarmSkippedPlaces.includes(venue)) s.swarmSkippedPlaces.push(venue);
+			} else if (!s.swarmSkipped.includes(current.id)) {
+				s.swarmSkipped.push(current.id);
+			}
 			this.pwUnsaved++;
 			if (this.pwUnsaved >= SAVE_EVERY) {
 				this.pwUnsaved = 0;

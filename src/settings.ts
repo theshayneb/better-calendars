@@ -94,6 +94,10 @@ export interface BetterCalendarsSettings {
 	swarmReviewed: string[];
 	/** Swarm check-in ids skipped in the review ("Bring skipped back" puts them in the queue again). */
 	swarmSkipped: string[];
+	/** Places (Foursquare venue ids) skipped in the review: none of their visits are shown again. */
+	swarmSkippedPlaces: string[];
+	/** The rating chips, in order. */
+	ratingOptions: string[];
 }
 
 export interface QueuedSwarmCheckin {
@@ -163,6 +167,8 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	swarmPostedIds: [],
 	swarmReviewed: [],
 	swarmSkipped: [],
+	swarmSkippedPlaces: [],
+	ratingOptions: ["💣", "⭐⭐", "⭐⭐⭐", "⭐⭐⭐⭐", "🩷"],
 };
 
 export function normalizeCalendar(raw: unknown): CalendarSource {

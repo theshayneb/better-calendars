@@ -535,14 +535,15 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("Swarm history")
 				.setDesc(
-					`${settings.swarmReviewed.length.toLocaleString()} check-ins reviewed, ${settings.swarmSkipped.length.toLocaleString()} skipped. New check-ins from the Swarm app are pulled in ${this.plugin.importsOnThisDevice() ? "on this device" : "on another device (\"Import on this device\" is off here)"}.`
+					`${settings.swarmReviewed.length.toLocaleString()} check-ins reviewed, ${settings.swarmSkippedPlaces.length.toLocaleString()} places skipped. New check-ins from the Swarm app are pulled in ${this.plugin.importsOnThisDevice() ? "on this device" : "on another device (\"Import on this device\" is off here)"}.`
 				)
 				.addButton((b) =>
 					b
 						.setButtonText("Bring skipped back")
-						.setDisabled(settings.swarmSkipped.length === 0)
+						.setDisabled(settings.swarmSkipped.length === 0 && settings.swarmSkippedPlaces.length === 0)
 						.onClick(async () => {
 							settings.swarmSkipped = [];
+							settings.swarmSkippedPlaces = [];
 							await this.plugin.saveSettings();
 							this.display();
 						})
@@ -637,6 +638,18 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			.addTextArea((t) =>
 				t.setValue(settings.checkinTags.join(", ")).onChange(async (v) => {
 					settings.checkinTags = list(v);
+					await save();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Rating choices")
+			.setDesc("The ratings offered when checking in or reviewing, in order. Separate with commas.")
+			.addText((t) =>
+				t.setValue(settings.ratingOptions.join(", ")).onChange(async (v) => {
+					settings.ratingOptions = v
+						.split(",")
+						.map((x) => x.trim())
+						.filter(Boolean);
 					await save();
 				})
 			);
