@@ -89,12 +89,20 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					this.display();
 				})
 			);
+		const background = this.plugin.backgroundOnThisDevice();
+		const lastRun = this.plugin.lastBackgroundRun();
+		const status = !background
+			? "Off: this device only shows the calendar and does what you do by hand."
+			: `Status: ${this.plugin.settle.describe()}${lastRun ? `; last run ${moment(lastRun).format("lll")}` : ""}.`;
 		new Setting(containerEl)
-			.setName("Import on this device")
-			.setDesc("Turn off on devices that should only receive notes through sync. This avoids duplicates when two devices import at the same time. Stored per device.")
+			.setName("Run background tasks on this device")
+			.setDesc(
+				`Imports events, follows renames and reschedules, creates daily notes ahead and pulls Swarm check-ins, after Obsidian Sync has caught up. Turn on for one always-on device only. Stored on this device. ${status}`
+			)
 			.addToggle((t) =>
-				t.setValue(this.plugin.importsOnThisDevice()).onChange((v) => {
-					this.plugin.setImportsOnThisDevice(v);
+				t.setValue(background).onChange((v) => {
+					this.plugin.setBackgroundOnThisDevice(v);
+					this.display();
 				})
 			);
 		intSetting(
@@ -485,7 +493,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					b.setDisabled(true);
 					try {
 						await searchPlaces(settings.fsqApiKey, {
-							near: settings.lastLocation ?? { lat: 40.758, lng: -73.9855 },
+							near: this.plugin.lastLocation() ?? { lat: 40.758, lng: -73.9855 },
 							limit: 1,
 						});
 						new Notice("Better Calendars: the Service API key works.");
@@ -535,7 +543,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("Swarm history")
 				.setDesc(
-					`${settings.swarmReviewed.length.toLocaleString()} check-ins reviewed, ${settings.swarmSkippedPlaces.length.toLocaleString()} places skipped. New check-ins from the Swarm app are pulled in ${this.plugin.importsOnThisDevice() ? "on this device" : "on another device (\"Import on this device\" is off here)"}.`
+					`${settings.swarmReviewed.length.toLocaleString()} check-ins reviewed, ${settings.swarmSkippedPlaces.length.toLocaleString()} places skipped. New check-ins from the Swarm app are pulled in ${this.plugin.backgroundOnThisDevice() ? "on this device" : "on another device (\"Run background tasks on this device\" is off here)"}.`
 				)
 				.addButton((b) =>
 					b
@@ -743,7 +751,8 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 						if (i >= 0) settings.calendars[i] = c;
 						await this.plugin.saveSettings();
 						this.display();
-						void this.plugin.refreshAndImport(true);
+						// Imports right away only where background tasks run; elsewhere just refresh the view.
+						void this.plugin.refreshAndImport(this.plugin.backgroundOnThisDevice());
 					}).open();
 				})
 		);

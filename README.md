@@ -43,7 +43,8 @@ From then on, Better Calendars checks your calendars every 30 minutes (configura
 - If an event is renamed, the title in its note's file name (and a `Title` property with the old title) follows. Notes you renamed yourself are left alone.
 - If an event moves to another day, its note's date property (`Date` by default), end date property (`End_Date` by default, e.g. `End_Date: {{end_date}}` in your template) and file name follow.
 - Turn off **Import automatically** for a calendar to only create notes when you click an event in the calendar view.
-- If you use several devices with Obsidian Sync, consider turning off **Import on this device** on all but one, so two devices don't create the same note at the same moment.
+- **Run background tasks on this device** (stored per device): imports, renames and reschedules from calendar changes, daily notes ahead and Swarm pulls run only where this is on, and only once Obsidian Sync has caught up (a few minutes after starting or coming back, with no file changes for a minute). It's on for desktop and off for phones and tablets by default; keep it on for one always-on device. Elsewhere the calendar is for viewing and what you do by hand (clicking an event or a day, "Import now").
+- Settings from different devices are merged by edit time, per setting and per entry, so a device that syncs rarely can't put back its old copy.
 
 ### Attendees
 
@@ -133,7 +134,7 @@ For each check-in you see the date and time (the place's local time), the place,
 - **Add the name as plain text (not a link)**: optional, under the daily note box, for when you want the name in `Places` without a link.
 - **Apply to all N visits here**: saves every visit to this place at once. If some of those days have no daily note, you're asked whether to create them.
 
-Then **Save and next**, **Later** (comes back next time, nothing is recorded) or **Skip place** (none of that place's visits are shown again; "Bring skipped back" in the settings undoes that). Close the review any time; your progress syncs, so you can continue on another device. New check-ins you make in the Swarm app join the queue (pulled by the device with "Import on this device" on); check-ins you made from Obsidian never appear.
+Then **Save and next**, **Later** (comes back next time, nothing is recorded) or **Skip place** (none of that place's visits are shown again; "Bring skipped back" in the settings undoes that). Close the review any time; your progress syncs, so you can continue on another device. New check-ins you make in the Swarm app join the queue (pulled by the device with "Run background tasks on this device" on); check-ins you made from Obsidian never appear.
 
 ### Setting up check-ins
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.0] - 2026-11-18
+
+Made for several devices on Obsidian Sync, where a phone or tablet that syncs every few hours or days used to overwrite the desktop's work.
+
+- New "Run background tasks on this device" (replaces "Import on this device", stored per device): importing events, following renames and reschedules, updating People, creating daily notes ahead and pulling Swarm check-ins happen only where it's on. It's on for desktop and off for phones and tablets by default; if you had turned "Import on this device" off, it stays off. Elsewhere the calendar is for viewing and what you do by hand (clicking an event or a day, "Import now").
+- Background work now waits until Obsidian Sync has caught up: a few minutes after Obsidian starts (or comes back after a while), with no file changes for a minute and Sync not busy. If Sync gets busy halfway, no new event notes are created until it settles, so two devices don't make the same note.
+- Settings are merged instead of overwritten: every save re-reads the settings file and merges it, and settings arriving from another device are merged in right away. Per setting and per entry (calendars, the import records, skipped places, category tags, ...) the latest edit wins, and removals are remembered, so a device's old copy can't undo what another device did or drop what it added. Nothing is written when nothing changed.
+- Clicking an event whose note was created before (on another device and not synced yet, or deleted) now asks before creating it again.
+- The last check-in place and the Swarm history cache stay on each device (the cache moved from the plugin folder to the app's own storage).
+- Update every device: older versions still import on every device and don't record edit times.
+
 ## [1.3.1] - 2026-11-12
 
 - Swarm history review: "Skip" is now "Skip place": none of that place's visits are shown again, including new check-ins there from the Swarm app. Places you skipped before this update are turned into skipped places the next time you open the review. "Bring skipped back" in the settings undoes all skips.

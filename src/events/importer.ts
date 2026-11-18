@@ -10,6 +10,9 @@ import {
 	sanitizeFilename,
 } from "../util/template";
 import { createNote } from "../util/templater";
+import { markOwnWrite } from "../sync/settle";
+import { ConfirmModal } from "../ui/modals";
+import { importAction } from "./import-logic";
 import {
 	AttendeeText,
 	PersonNote,
@@ -72,6 +75,8 @@ export interface ImportResult {
 	skipped: number;
 	/** Events in the import window, from calendars that import automatically. */
 	inWindow: number;
+	/** Background run stopped creating notes because Sync got busy; try again once it settles. */
+	deferred: boolean;
 }
 
 export class EventImporter {
@@ -101,15 +106,15 @@ export class EventImporter {
 	 * one yet. Events whose note was created before (and maybe deleted
 	 * since) are left alone.
 	 */
-	importNow(): Promise<ImportResult> {
+	importNow(background: boolean): Promise<ImportResult> {
 		if (this.importing) return this.importing;
-		this.importing = this.doImport().finally(() => {
+		this.importing = this.doImport(background).finally(() => {
 			this.importing = null;
 		});
 		return this.importing;
 	}
 
-	private async doImport(): Promise<ImportResult> {
+	private async doImport(background: boolean): Promise<ImportResult> {
 		const settings = this.plugin.settings;
 		const from = moment()
 			.startOf("day")
@@ -121,6 +126,7 @@ export class EventImporter {
 		let created = 0;
 		let skipped = 0;
 		let inWindow = 0;
+		let deferred = false;
 		let changed = false;
 		for (const event of this.plugin.manager.allEvents()) {
 			const calendar = this.calendarFor(event);
@@ -129,6 +135,12 @@ export class EventImporter {
 			inWindow++;
 
 			const note = this.findNote(event);
+			const action = importAction({
+				hasNote: note !== null,
+				recorded: settings.imported[event.id] !== undefined,
+				background,
+				settled: background && this.plugin.settle.settled(),
+			});
 			if (note) {
 				await this.followReschedule(note, event);
 				if (await this.followPeople(note, event)) changed = true;
@@ -139,8 +151,13 @@ export class EventImporter {
 				}
 				continue;
 			}
-			if (settings.imported[event.id] !== undefined) {
+			if (action === "skip") {
 				skipped++;
+				continue;
+			}
+			if (action === "wait") {
+				// Notes from other devices may be arriving: don't create one now.
+				deferred = true;
 				continue;
 			}
 
@@ -182,23 +199,43 @@ export class EventImporter {
 		}
 
 		if (changed) await this.plugin.saveSettings();
-		return { created, skipped, inWindow };
+		return { created, skipped, inWindow, deferred };
 	}
 
 	/** Open the event's note, creating it first if needed. */
 	async openOrCreate(event: CalEvent, newTab: boolean): Promise<void> {
-		let note = this.findNote(event);
-		if (!note) {
-			const calendar = this.calendarFor(event);
-			if (!calendar) {
-				new Notice("Better Calendars: calendar not found.");
-				return;
-			}
-			note = await this.createNote(event, calendar);
+		const open = (file: TFile) => this.app.workspace.getLeaf(newTab ? "tab" : false).openFile(file);
+		const existing = this.findNote(event);
+		if (existing) {
+			await open(existing);
+			return;
+		}
+		const calendar = this.calendarFor(event);
+		if (!calendar) {
+			new Notice("Better Calendars: calendar not found.");
+			return;
+		}
+		// Another device may have recorded this note since the last sync.
+		await this.plugin.syncSettings();
+		const create = async () => {
+			const raced = this.findNote(event);
+			if (raced) return open(raced);
+			const note = await this.createNote(event, calendar);
 			this.plugin.settings.imported[event.id] = event.start.getTime();
 			await this.plugin.saveSettings();
+			await open(note);
+		};
+		if (this.plugin.settings.imported[event.id] !== undefined) {
+			new ConfirmModal(
+				this.app,
+				"Create the note again?",
+				"A note for this event was created before: on another device and not synced here yet, or deleted since. Creating one now can leave two notes for this event.",
+				"Create",
+				create
+			).open();
+			return;
 		}
-		await this.app.workspace.getLeaf(newTab ? "tab" : false).openFile(note);
+		await create();
 	}
 
 	async createNote(event: CalEvent, calendar: CalendarSource): Promise<TFile> {
@@ -252,6 +289,7 @@ export class EventImporter {
 			this.dateValue(event, "start")
 		);
 		if (folder) await ensureFolder(this.app, folder);
+		markOwnWrite(path);
 		const file = await createNote(this.app, path, body, settings.runTemplater);
 		settings.noteNames[event.id] = { name: file.basename, title: event.title };
 		// Remember which guests we wrote, so only those are ever removed again.
@@ -327,6 +365,7 @@ export class EventImporter {
 
 		const result = syncPeople(current, wanted, added);
 		if (result.changed) {
+			markOwnWrite(note.path);
 			await this.app.fileManager.processFrontMatter(
 				note,
 				(data: Record<string, unknown>) => {
@@ -433,6 +472,7 @@ export class EventImporter {
 			: null;
 		const legacyMoved = legacy !== null && legacy !== newDate;
 		if (startValue === null && endValue === null && !legacyMoved) return;
+		markOwnWrite(note.path);
 
 		await this.app.fileManager.processFrontMatter(
 			note,
@@ -460,6 +500,7 @@ export class EventImporter {
 			this.app,
 			joinPath(parent === "/" ? "" : parent, `${newName}.md`)
 		);
+		markOwnWrite(note.path, target);
 		await this.app.fileManager.renameFile(note, target);
 		const record = this.plugin.settings.noteNames[event.id];
 		if (record && record.name === oldName) record.name = note.basename;
@@ -488,6 +529,7 @@ export class EventImporter {
 			(k) => k.toLowerCase() === "title" && fm[k] === oldTitle
 		);
 		if (titleKeys.length > 0) {
+			markOwnWrite(note.path);
 			await this.app.fileManager.processFrontMatter(
 				note,
 				(data: Record<string, unknown>) => {

@@ -1,4 +1,5 @@
 import { App, TFile, TFolder, normalizePath } from "obsidian";
+import { markOwnWrite } from "../sync/settle";
 
 export async function ensureFolder(app: App, folder: string): Promise<void> {
 	const path = normalizePath(folder);
@@ -7,6 +8,7 @@ export async function ensureFolder(app: App, folder: string): Promise<void> {
 	if (existing instanceof TFolder) return;
 	if (existing) throw new Error(`"${path}" exists and is not a folder`);
 	try {
+		markOwnWrite(path);
 		await app.vault.createFolder(path);
 	} catch (e) {
 		// Created in the meantime (sync, another call): fine.

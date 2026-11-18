@@ -2,43 +2,73 @@ import { normalizePath } from "obsidian";
 import type BetterCalendarsPlugin from "../main";
 import { swarmCheckinsPage } from "./foursquare";
 import { SwarmCheckin, fromRaw, mergeHistory } from "./history-logic";
+import { idbGet, idbSet } from "../util/idb";
 
 const PAGE = 250;
 /** Safety stop: 400 pages = 100,000 check-ins. */
 const MAX_PAGES = 400;
 
 /**
- * The Swarm history lives in a cache file next to the plugin, per device,
- * not in the synced settings: it's large, and every save would otherwise
- * upload all of it again. Only the reviewed ids sync.
+ * The Swarm history is a per-device cache in IndexedDB (never synced): it's
+ * large, and only the reviewed ids need to sync. Before 1.4.0 it was the file
+ * swarm-history.json in the plugin folder; that is moved over and removed.
  */
-function cachePath(plugin: BetterCalendarsPlugin): string {
+const IDB_KEY = "swarm-history";
+
+function legacyPath(plugin: BetterCalendarsPlugin): string {
 	return normalizePath(
 		`${plugin.manifest.dir ?? `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`}/swarm-history.json`
 	);
+}
+
+/** One database per vault on this device. */
+function dbName(plugin: BetterCalendarsPlugin): string {
+	const appId = (plugin.app as unknown as { appId?: unknown }).appId;
+	return `better-calendars/${typeof appId === "string" && appId ? appId : plugin.app.vault.getName()}`;
 }
 
 let memory: SwarmCheckin[] | null = null;
 
 export async function loadHistory(plugin: BetterCalendarsPlugin): Promise<SwarmCheckin[]> {
 	if (memory) return memory;
-	const path = cachePath(plugin);
 	try {
-		if (await plugin.app.vault.adapter.exists(path)) {
-			const data = JSON.parse(await plugin.app.vault.adapter.read(path)) as { checkins?: SwarmCheckin[] };
-			memory = Array.isArray(data.checkins) ? data.checkins : [];
+		const stored = await idbGet<{ checkins?: SwarmCheckin[] }>(dbName(plugin), IDB_KEY);
+		if (stored && Array.isArray(stored.checkins)) {
+			memory = stored.checkins;
 			return memory;
 		}
 	} catch (e) {
 		console.warn("[Better Calendars] Swarm history cache unreadable, fetching again", e);
 	}
-	memory = [];
+	memory = (await moveLegacyFile(plugin)) ?? [];
 	return memory;
+}
+
+/** Bring the pre-1.4.0 cache file over to IndexedDB and delete it. */
+async function moveLegacyFile(plugin: BetterCalendarsPlugin): Promise<SwarmCheckin[] | null> {
+	const adapter = plugin.app.vault.adapter;
+	const path = legacyPath(plugin);
+	try {
+		if (!(await adapter.exists(path))) return null;
+		const data = JSON.parse(await adapter.read(path)) as { checkins?: SwarmCheckin[] };
+		const checkins = Array.isArray(data.checkins) ? data.checkins : [];
+		await idbSet(dbName(plugin), IDB_KEY, { v: 1, checkins });
+		await adapter.remove(path);
+		return checkins;
+	} catch (e) {
+		console.warn("[Better Calendars] could not move the old Swarm history cache", e);
+		return null;
+	}
 }
 
 async function saveHistory(plugin: BetterCalendarsPlugin, history: SwarmCheckin[]): Promise<void> {
 	memory = history;
-	await plugin.app.vault.adapter.write(cachePath(plugin), JSON.stringify({ v: 1, checkins: history }));
+	try {
+		await idbSet(dbName(plugin), IDB_KEY, { v: 1, checkins: history });
+	} catch (e) {
+		// Kept in memory for this session; fetched again next time.
+		console.warn("[Better Calendars] could not save the Swarm history cache", e);
+	}
 }
 
 /**

@@ -1,10 +1,15 @@
-import { Notice, Plugin, WorkspaceLeaf, moment } from "obsidian";
+import { Notice, Platform, Plugin, TAbstractFile, WorkspaceLeaf, moment } from "obsidian";
 import type { Moment } from "moment";
+import { BetterCalendarsSettings, normalizeSettings } from "./settings";
+import { Data, clone, syncStep } from "./sync/merge";
+import { SyncSettle } from "./sync/settle";
 import {
-	BetterCalendarsSettings,
-	DEFAULT_SETTINGS,
-	normalizeCalendar,
-} from "./settings";
+	BACKGROUND_KEY,
+	LAST_LOCATION_KEY,
+	LAST_RUN_KEY,
+	LEGACY_IMPORT_KEY,
+	backgroundOn,
+} from "./sync/background";
 import { BetterCalendarsSettingTab } from "./settings-tab";
 import { CalendarManager } from "./events/manager";
 import { EventImporter, EventNoteIndex } from "./events/importer";
@@ -25,18 +30,22 @@ import {
 	today,
 } from "./daily/daily-notes";
 
-/** Wait this long after startup before creating notes, so sync can deliver other devices' notes first. */
-const STARTUP_IMPORT_DELAY_MS = 30_000;
-const LOCAL_IMPORT_KEY = "better-calendars-import-here";
+/** While Sync hasn't settled, look again this often. */
+const SETTLE_RETRY_MS = 60_000;
 
 export default class BetterCalendarsPlugin extends Plugin {
 	settings!: BetterCalendarsSettings;
 	manager!: CalendarManager;
 	settingTab: BetterCalendarsSettingTab | null = null;
 	importer!: EventImporter;
+	settle!: SyncSettle;
 	private refreshTimer: number | null = null;
-	private startupDone = false;
-	private startupTimer: number | null = null;
+	private settleTimer: number | null = null;
+	private working = false;
+	/** The settings as last read from or written to disk; edits are what differs from it. */
+	private baseline: Data = {};
+	/** Settings reads and writes run one at a time. */
+	private syncChain: Promise<unknown> = Promise.resolve();
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -45,6 +54,19 @@ export default class BetterCalendarsPlugin extends Plugin {
 		for (const ev of ["create", "delete", "rename"] as const) {
 			this.registerEvent(this.app.vault.on(ev as "create", () => invalidateDailyNoteIndex()));
 		}
+		// Background work waits until Obsidian Sync has caught up.
+		this.settle = new SyncSettle(this.app);
+		for (const ev of ["create", "modify", "delete", "rename"] as const) {
+			this.registerEvent(
+				this.app.vault.on(ev as "rename", (file: TAbstractFile, oldPath?: string) =>
+					this.settle.onVaultChange(file, oldPath)
+				)
+			);
+		}
+		this.registerDomEvent(document, "visibilitychange", () =>
+			this.settle.onVisibilityChange(document.hidden)
+		);
+		this.registerDomEvent(window, "online", () => this.settle.onOnline());
 
 		this.manager = new CalendarManager(
 			() => this.settings.calendars,
@@ -114,13 +136,8 @@ export default class BetterCalendarsPlugin extends Plugin {
 
 		this.app.workspace.onLayoutReady(() => {
 			if (this.settings.openOnStartup) void this.activateView(false);
-			// Load events for the view right away; create notes a bit later.
-			void this.manager.refreshAll();
-			this.startupTimer = window.setTimeout(() => {
-				this.startupTimer = null;
-				this.startupDone = true;
-				void this.refreshAndImport(false);
-			}, STARTUP_IMPORT_DELAY_MS);
+			// Load events for the view right away; background work waits for Sync to settle.
+			void this.refreshAndImport(false);
 			this.scheduleRefresh();
 		});
 	}
@@ -128,57 +145,94 @@ export default class BetterCalendarsPlugin extends Plugin {
 	onunload(): void {
 		document.body.removeClass("bc-hide-event-id");
 		document.body.removeClass("bc-hide-fsq");
-		if (this.startupTimer !== null) window.clearTimeout(this.startupTimer);
+		if (this.settleTimer !== null) window.clearTimeout(this.settleTimer);
 		if (this.refreshTimer !== null) window.clearInterval(this.refreshTimer);
 	}
 
 	async loadSettings(): Promise<void> {
-		const loaded = ((await this.loadData()) ?? {}) as Partial<BetterCalendarsSettings>;
-		this.settings = {
-			...DEFAULT_SETTINGS,
-			...loaded,
-			calendars: (Array.isArray(loaded.calendars) ? loaded.calendars : []).map(
-				normalizeCalendar
-			),
-			imported: { ...(loaded.imported ?? {}) },
-			peopleAdded: { ...(loaded.peopleAdded ?? {}) },
-			noteNames: { ...(loaded.noteNames ?? {}) },
-			checkinTags: [...(loaded.checkinTags ?? DEFAULT_SETTINGS.checkinTags)],
-			alwaysTags: [...(loaded.alwaysTags ?? DEFAULT_SETTINGS.alwaysTags)],
-			impliedTags: { ...(loaded.impliedTags ?? DEFAULT_SETTINGS.impliedTags) },
-			categoryTags: { ...(loaded.categoryTags ?? {}) },
-			swarmQueue: [...(loaded.swarmQueue ?? [])],
-			swarmPostedIds: [...(loaded.swarmPostedIds ?? [])],
-			swarmReviewed: [...(loaded.swarmReviewed ?? [])],
-			swarmSkipped: [...(loaded.swarmSkipped ?? [])],
-			swarmSkippedPlaces: [...(loaded.swarmSkippedPlaces ?? [])],
-			ratingOptions: [...(loaded.ratingOptions ?? DEFAULT_SETTINGS.ratingOptions)],
-			nycTagAdded: true,
-		};
-		this.addNycTagOnce(loaded);
-	}
-
-	/** Add "nyc" to an existing tag list once (1.1.2); removing it later sticks. */
-	private addNycTagOnce(loaded: Partial<BetterCalendarsSettings>): void {
-		if (loaded.nycTagAdded || !loaded.checkinTags) return;
-		if (!this.settings.checkinTags.some((t) => t.toLowerCase() === "nyc")) {
-			this.settings.checkinTags.push("nyc");
+		const raw = ((await this.loadData()) ?? {}) as Record<string, unknown>;
+		this.settings = normalizeSettings(raw);
+		this.baseline = clone(this.settings) as unknown as Data;
+		// Before 1.4.0 the last check-in place was in the synced settings.
+		const loc = raw.lastLocation as { lat?: unknown; lng?: unknown } | null | undefined;
+		if (loc && typeof loc.lat === "number" && typeof loc.lng === "number" && !this.app.loadLocalStorage(LAST_LOCATION_KEY)) {
+			this.app.saveLocalStorage(LAST_LOCATION_KEY, { lat: loc.lat, lng: loc.lng });
 		}
 	}
 
+	/** Save: re-read data.json, merge this device's edits into it, and write only if that changed it. */
 	async saveSettings(): Promise<void> {
-		await this.saveData(this.settings);
+		await this.syncSettings();
+	}
+
+	/** Obsidian calls this when data.json changed on disk (Obsidian Sync brought another device's copy). */
+	async onExternalSettingsChange(): Promise<void> {
+		const before = clone(this.settings);
+		if (!(await this.syncSettings())) return;
+		this.applyHideEventId();
+		if (before.refreshMinutes !== this.settings.refreshMinutes) this.scheduleRefresh();
+		if (JSON.stringify(before.calendars) !== JSON.stringify(this.settings.calendars)) {
+			void this.manager.refreshAll();
+		}
+		this.refreshViews();
+		// Don't redraw under your fingers while you're typing in the settings.
+		const tab = this.settingTab?.containerEl;
+		if (!(tab && document.activeElement instanceof HTMLElement && tab.contains(document.activeElement))) {
+			this.refreshSettingsTab();
+		}
 	}
 
 	/**
-	 * Pull check-ins made in the Swarm app into the review queue. Only on
-	 * the device with "Import on this device", and only once the history
-	 * has been loaded here (the first, full load happens when you open the
-	 * review).
+	 * Merge memory with data.json (read, merge, write). Edits made here since
+	 * the last sync get the current time; per setting and per entry the
+	 * newest edit wins (see sync/merge.ts). Writes only when the merge
+	 * changed what's on disk. Returns true when memory changed.
+	 */
+	syncSettings(): Promise<boolean> {
+		const run = this.syncChain.then(() => this.doSyncSettings());
+		this.syncChain = run.catch(() => undefined);
+		return run;
+	}
+
+	private async doSyncSettings(): Promise<boolean> {
+		const mine = this.settings as unknown as Data;
+		let raw: unknown;
+		try {
+			raw = await this.loadData();
+		} catch (e) {
+			// Half-written by Sync, say. Keep memory; the next save merges again.
+			console.warn("[Better Calendars] could not read the settings file; not saving now", e);
+			return false;
+		}
+		const disk = normalizeSettings(raw ?? {}) as unknown as Data;
+		const { write, merged, memoryChanged: changed } = syncStep(mine, this.baseline, disk, Date.now());
+		// Update memory before writing, so an edit made while the file is being written isn't overwritten.
+		if (changed) {
+			for (const key of Object.keys(mine)) if (!(key in merged)) delete mine[key];
+			Object.assign(mine, merged);
+		}
+		this.baseline = clone(merged);
+		if (write) await this.saveData(write);
+		return changed;
+	}
+
+	lastLocation(): { lat: number; lng: number } | null {
+		const v = this.app.loadLocalStorage(LAST_LOCATION_KEY) as { lat?: unknown; lng?: unknown } | null;
+		return v && typeof v.lat === "number" && typeof v.lng === "number" ? { lat: v.lat, lng: v.lng } : null;
+	}
+
+	setLastLocation(loc: { lat: number; lng: number }): void {
+		this.app.saveLocalStorage(LAST_LOCATION_KEY, loc);
+	}
+
+	/**
+	 * Pull check-ins made in the Swarm app into the review queue (background
+	 * work), only once the history has been loaded on this device (the
+	 * first, full load happens when you open the review).
 	 */
 	private async pullSwarmCheckins(): Promise<void> {
 		const s = this.settings;
-		if (!s.swarmToken || !this.importsOnThisDevice()) return;
+		if (!s.swarmToken) return;
 		try {
 			if ((await loadHistory(this)).length === 0) return;
 			const { history, added } = await refreshHistory(this);
@@ -209,12 +263,24 @@ export default class BetterCalendarsPlugin extends Plugin {
 		document.body.toggleClass("bc-hide-event-id", this.settings.hideEventId);
 	}
 
-	importsOnThisDevice(): boolean {
-		return this.app.loadLocalStorage(LOCAL_IMPORT_KEY) !== "off";
+	/** "Run background tasks on this device" (stored per device, never synced). */
+	backgroundOnThisDevice(): boolean {
+		return backgroundOn(
+			this.app.loadLocalStorage(BACKGROUND_KEY),
+			this.app.loadLocalStorage(LEGACY_IMPORT_KEY),
+			Platform.isDesktopApp
+		);
 	}
 
-	setImportsOnThisDevice(on: boolean): void {
-		this.app.saveLocalStorage(LOCAL_IMPORT_KEY, on ? null : "off");
+	setBackgroundOnThisDevice(on: boolean): void {
+		this.app.saveLocalStorage(BACKGROUND_KEY, on ? "on" : "off");
+		if (on) this.runBackgroundWhenSettled();
+	}
+
+	/** When background work last ran on this device (ms), or 0. */
+	lastBackgroundRun(): number {
+		const v: unknown = this.app.loadLocalStorage(LAST_RUN_KEY);
+		return typeof v === "number" ? v : 0;
 	}
 
 	scheduleRefresh(): void {
@@ -228,9 +294,10 @@ export default class BetterCalendarsPlugin extends Plugin {
 	}
 
 	/**
-	 * Fetch all calendars, then (if allowed) import new events and create
-	 * daily notes ahead. `manual` runs regardless of the automatic settings
-	 * and reports the result.
+	 * Fetch all calendars (for the view, on every device). `manual` (you
+	 * asked for it) then imports events and creates daily notes ahead right
+	 * away; otherwise that only happens as background work: on the device
+	 * with "Run background tasks on this device", once Sync has settled.
 	 */
 	async refreshAndImport(manual: boolean): Promise<void> {
 		await this.manager.refreshAll();
@@ -244,41 +311,76 @@ export default class BetterCalendarsPlugin extends Plugin {
 				`Better Calendars: could not load ${failed.map((c) => c.name).join(", ")}.`
 			);
 		}
-
-		const auto = this.startupDone && this.importsOnThisDevice();
-		if (manual || (auto && this.settings.autoImport)) {
-			try {
-				const { created, skipped, inWindow } = await this.importer.importNow();
-				if (created > 0 || manual) {
-					const days = this.settings.importDaysAhead;
-					let msg =
-						inWindow === 0
-							? `no events in the next ${days} day${days === 1 ? "" : "s"}.`
-							: `${created} new event note${created === 1 ? "" : "s"}.`;
-					if (skipped > 0) {
-						msg += ` ${skipped} event${skipped === 1 ? " was" : "s were"} skipped because ${skipped === 1 ? "its note was" : "their notes were"} deleted earlier; use "Forget import history" in the settings to create them again, or click the event in the calendar.`;
-					}
-					new Notice(`Better Calendars: ${msg}`, skipped > 0 ? 10_000 : undefined);
-				}
-			} catch (e) {
-				console.warn("[Better Calendars] import failed", e);
-				if (manual) new Notice("Better Calendars: import failed, see the console.");
-			}
-		}
-		if (manual || auto) await this.autoCreateDailyNotes();
+		// Check-ins you made on this device that couldn't be posted yet.
 		try {
 			await retrySwarmQueue(this);
 		} catch (e) {
 			console.warn("[Better Calendars] Swarm retry failed", e);
 		}
-		if (auto || manual) await this.pullSwarmCheckins();
-		this.refreshViews();
+		if (manual) await this.runWork(true);
+		else this.runBackgroundWhenSettled();
+	}
+
+	/** Background work, if this device does it, as soon as Sync has settled (looked at again every minute). */
+	runBackgroundWhenSettled(): void {
+		if (!this.backgroundOnThisDevice()) return;
+		if (this.settleTimer !== null) {
+			window.clearTimeout(this.settleTimer);
+			this.settleTimer = null;
+		}
+		if (!this.settle.settled()) {
+			this.settleTimer = window.setTimeout(() => {
+				this.settleTimer = null;
+				this.runBackgroundWhenSettled();
+			}, SETTLE_RETRY_MS);
+			return;
+		}
+		void this.runWork(false);
+	}
+
+	private async runWork(manual: boolean): Promise<void> {
+		if (this.working) return;
+		this.working = true;
+		let deferred = false;
+		try {
+			// Start from what's on disk, so nothing another device recorded is missed.
+			await this.syncSettings();
+			if (manual || this.settings.autoImport) {
+				try {
+					const result = await this.importer.importNow(!manual);
+					deferred = result.deferred;
+					const { created, skipped, inWindow } = result;
+					if (created > 0 || manual) {
+						const days = this.settings.importDaysAhead;
+						let msg =
+							inWindow === 0
+								? `no events in the next ${days} day${days === 1 ? "" : "s"}.`
+								: `${created} new event note${created === 1 ? "" : "s"}.`;
+						if (skipped > 0) {
+							msg += ` ${skipped} event${skipped === 1 ? " was" : "s were"} skipped because ${skipped === 1 ? "its note was" : "their notes were"} created before (deleted since, or not synced here yet); use "Forget import history" in the settings to create them again, or click the event in the calendar.`;
+						}
+						new Notice(`Better Calendars: ${msg}`, skipped > 0 ? 10_000 : undefined);
+					}
+				} catch (e) {
+					console.warn("[Better Calendars] import failed", e);
+					if (manual) new Notice("Better Calendars: import failed, see the console.");
+				}
+			}
+			if (!deferred && (manual || this.settle.settled())) await this.autoCreateDailyNotes();
+			await this.pullSwarmCheckins();
+			if (!manual) this.app.saveLocalStorage(LAST_RUN_KEY, Date.now());
+		} finally {
+			this.working = false;
+			this.refreshViews();
+		}
+		// Sync got busy halfway: finish once it has settled again.
+		if (deferred) this.runBackgroundWhenSettled();
 	}
 
 	/** Keep daily notes for today + N days ahead, if that is turned on. */
 	async autoCreateDailyNotes(): Promise<void> {
 		const days = this.settings.dailyAutoCreateDays;
-		if (days <= 0 || !this.importsOnThisDevice()) return;
+		if (days <= 0) return;
 		try {
 			await createDailyNotesAhead(this.app, this.settings, today(), days + 1);
 		} catch (e) {

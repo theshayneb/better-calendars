@@ -175,7 +175,7 @@ export class CheckinModal extends Modal {
 
 	private async pwSearch(): Promise<void> {
 		const seq = ++this.pwSearchSeq;
-		const near: LatLng | null = this.pwLocation ?? this.plugin.settings.lastLocation;
+		const near: LatLng | null = this.pwLocation ?? this.plugin.lastLocation();
 		const query = this.pwQuery.trim();
 		if (!query && !this.pwLocation) {
 			this.pwPlaces = [];
@@ -329,7 +329,7 @@ export class CheckinModal extends Modal {
 				}
 				createDaily = answer;
 			}
-			settings.lastLocation = { lat: place.lat, lng: place.lng };
+			plugin.setLastLocation({ lat: place.lat, lng: place.lng });
 
 			const visit = visitEntry(moment().format("YYYY-MM-DD HH:mm"), c.note);
 			const file = await recordVisit(app, settings, {

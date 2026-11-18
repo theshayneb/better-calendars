@@ -1,4 +1,5 @@
 import { App, TFile } from "obsidian";
+import { markOwnWrite } from "../sync/settle";
 
 interface TemplaterInternals {
 	overwrite_file_commands?: (file: TFile) => Promise<void>;
@@ -73,6 +74,7 @@ async function createNow(
 	const pending = templater?.files_with_pending_templates;
 	pending?.add(path);
 	try {
+		markOwnWrite(path);
 		const file = await app.vault.create(path, body);
 		if (templater?.overwrite_file_commands) {
 			await waitForMetadata(app, file);

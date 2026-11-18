@@ -1,5 +1,6 @@
 import { CalendarSource } from "./types";
 import { AttendeeFilter, AttendeeFormat } from "./util/attendees";
+import { META_KEY, SyncMeta } from "./sync/merge";
 
 export type WeekStart = "locale" | "sunday" | "monday";
 
@@ -84,8 +85,6 @@ export interface BetterCalendarsSettings {
 	impliedTags: Record<string, string[]>;
 	/** Foursquare category id -> remembered tag; "" means "no tag for this category". */
 	categoryTags: Record<string, { name: string; tag: string }>;
-	/** Last place checked in (for searching near it on desktop). */
-	lastLocation: { lat: number; lng: number } | null;
 	/** Swarm check-ins waiting to be posted (no signal, Foursquare down). */
 	swarmQueue: QueuedSwarmCheckin[];
 	/** Swarm check-in ids made from Obsidian (so the history review skips them). */
@@ -98,6 +97,8 @@ export interface BetterCalendarsSettings {
 	swarmSkippedPlaces: string[];
 	/** The rating chips, in order. */
 	ratingOptions: string[];
+	/** Edit times, for merging copies from other devices (see sync/merge.ts). */
+	[META_KEY]?: SyncMeta;
 }
 
 export interface QueuedSwarmCheckin {
@@ -162,7 +163,6 @@ export const DEFAULT_SETTINGS: BetterCalendarsSettings = {
 	alwaysTags: ["place"],
 	impliedTags: { pizza: ["food"], tea: ["food"], dessert: ["food"] },
 	categoryTags: {},
-	lastLocation: null,
 	swarmQueue: [],
 	swarmPostedIds: [],
 	swarmReviewed: [],
@@ -186,4 +186,39 @@ export function normalizeCalendar(raw: unknown): CalendarSource {
 		titlePattern: str(o.titlePattern, ""),
 		excludeAllDay: o.excludeAllDay !== false,
 	};
+}
+
+/**
+ * Settings as stored, filled up with defaults. Keys this version doesn't
+ * know (from older or newer versions) are kept, so they're written back.
+ */
+export function normalizeSettings(raw: unknown): BetterCalendarsSettings {
+	const loaded = (raw && typeof raw === "object" ? raw : {}) as Partial<BetterCalendarsSettings>;
+	const arr = <T>(v: T[] | undefined, d: T[]): T[] => [...(Array.isArray(v) ? v : d)];
+	const obj = <T extends object>(v: T | undefined, d: T): T =>
+		({ ...(v && typeof v === "object" && !Array.isArray(v) ? v : d) });
+	const settings: BetterCalendarsSettings = {
+		...DEFAULT_SETTINGS,
+		...loaded,
+		calendars: arr(loaded.calendars, []).map(normalizeCalendar),
+		imported: obj(loaded.imported, {}),
+		peopleAdded: obj(loaded.peopleAdded, {}),
+		noteNames: obj(loaded.noteNames, {}),
+		checkinTags: arr(loaded.checkinTags, DEFAULT_SETTINGS.checkinTags),
+		alwaysTags: arr(loaded.alwaysTags, DEFAULT_SETTINGS.alwaysTags),
+		impliedTags: obj(loaded.impliedTags, DEFAULT_SETTINGS.impliedTags),
+		categoryTags: obj(loaded.categoryTags, {}),
+		swarmQueue: arr(loaded.swarmQueue, []),
+		swarmPostedIds: arr(loaded.swarmPostedIds, []),
+		swarmReviewed: arr(loaded.swarmReviewed, []),
+		swarmSkipped: arr(loaded.swarmSkipped, []),
+		swarmSkippedPlaces: arr(loaded.swarmSkippedPlaces, []),
+		ratingOptions: arr(loaded.ratingOptions, DEFAULT_SETTINGS.ratingOptions),
+		nycTagAdded: true,
+	};
+	// Add "nyc" to an existing tag list once (1.1.2); removing it later sticks.
+	if (!loaded.nycTagAdded && loaded.checkinTags) {
+		if (!settings.checkinTags.some((t) => t.toLowerCase() === "nyc")) settings.checkinTags.push("nyc");
+	}
+	return settings;
 }
