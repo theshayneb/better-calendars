@@ -44,11 +44,25 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 
 	hide(): void {
 		this.pwSaveNow();
+		super.hide();
+	}
+
+	private pwChangedNote: HTMLElement | null = null;
+
+	/** Settings changed on another device while this page is open: say so instead of redrawing. */
+	pwChangedElsewhere(): void {
+		if (!this.containerEl.isShown() || this.pwChangedNote?.isConnected) return;
+		this.pwChangedNote = createDiv({
+			cls: "setting-item-description mod-warning",
+			text: "These settings were changed on another device. Close and reopen them to see the changes.",
+		});
+		this.containerEl.prepend(this.pwChangedNote);
 	}
 
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		this.pwChangedNote = null;
 		const settings = this.plugin.settings;
 		const save = () => this.pwSaveSoon();
 		const intSetting = (
@@ -425,7 +439,8 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			() => settings.dailyAutoCreateDays,
 			(n) => {
 				settings.dailyAutoCreateDays = n;
-				void this.plugin.autoCreateDailyNotes();
+				// Creating notes is background work: only where it runs.
+				if (this.plugin.backgroundOnThisDevice()) void this.plugin.autoCreateDailyNotes();
 			},
 			0,
 			60

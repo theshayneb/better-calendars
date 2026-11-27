@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.2] - 2026-11-27
+
+- Fixed Obsidian freezing on phones when opening Better Calendars' settings:
+  - The settings page is no longer redrawn every time the settings file changes on disk. When settings arrive from another device while it's open, it says so at the top; reopen it to see them.
+  - Changes to the settings file that come in bursts are handled once, a couple of seconds after the last one, and skipped entirely when nothing actually changed.
+  - Fixed two devices rewriting the settings file back and forth for ever once 5,000 check-ins had been posted from Obsidian (the list is no longer trimmed).
+  - Safety valve: if the settings file keeps changing and this device keeps answering, it stops answering for 10 minutes instead of keeping the app busy.
+  - A settings file read or write that never finishes (it happens on phones) is given up on after 30 seconds, so later saves aren't held up.
+- Changing "Create daily notes ahead" no longer creates daily notes on a phone or tablet where background tasks are off.
+
 ## [1.4.1] - 2026-11-27
 
 - Fixed the settings freezing Obsidian on phones and tablets. Since 1.4.0 every save re-reads and merges the settings file, and text fields saved on every keystroke, so typing queued one full merge (and one upload through Sync) per letter. Settings are now saved once you pause typing, when you close the settings, or when the app goes to the background; saves that pile up are combined into one, and the merge itself is much faster with a big Swarm history.

@@ -62,10 +62,13 @@ export const COLLECTIONS: Record<string, Kind> = {
 	},
 };
 
-/** Append-only id lists, merged as unions (with an optional cap, oldest dropped). */
+/**
+ * Append-only id lists, merged as unions. No cap: two devices trimming a
+ * capped list differently rewrote each other's file forever (1.4.0–1.4.1).
+ */
 export const UNIONS: Record<string, number> = {
 	swarmReviewed: Infinity,
-	swarmPostedIds: 5000,
+	swarmPostedIds: Infinity,
 };
 
 /** Keys that are never merged: whatever is on disk stays (old versions may still write them). */

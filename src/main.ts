@@ -1,7 +1,7 @@
 import { Notice, Platform, Plugin, TAbstractFile, WorkspaceLeaf, moment } from "obsidian";
 import type { Moment } from "moment";
 import { BetterCalendarsSettings, normalizeSettings } from "./settings";
-import { Data, clone, syncStep } from "./sync/merge";
+import { Data, clone, sameData, syncStep } from "./sync/merge";
 import { SyncSettle } from "./sync/settle";
 import {
 	BACKGROUND_KEY,
@@ -32,6 +32,28 @@ import {
 
 /** While Sync hasn't settled, look again this often. */
 const SETTLE_RETRY_MS = 60_000;
+/** Settings changes from disk are handled this long after the last one of a burst. */
+const EXTERNAL_CHANGE_DELAY_MS = 2000;
+/** More writes than this in a minute in answer to changes from disk means devices are bouncing. */
+const MAX_EXTERNAL_WRITES_PER_MINUTE = 5;
+/** A settings file read or write that takes longer than this is given up on. */
+const FILE_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const timer = window.setTimeout(() => reject(new Error(`took longer than ${ms / 1000} s`)), ms);
+		p.then(
+			(v) => {
+				window.clearTimeout(timer);
+				resolve(v);
+			},
+			(e: unknown) => {
+				window.clearTimeout(timer);
+				reject(e instanceof Error ? e : new Error(String(e)));
+			}
+		);
+	});
+}
 
 export default class BetterCalendarsPlugin extends Plugin {
 	settings!: BetterCalendarsSettings;
@@ -47,6 +69,11 @@ export default class BetterCalendarsPlugin extends Plugin {
 	/** Settings reads and writes run one at a time. */
 	private syncChain: Promise<unknown> = Promise.resolve();
 	private pendingSync: Promise<boolean> | null = null;
+	private externalTimer: number | null = null;
+	/** How many times data.json was written (for the safety valve). */
+	private settingsWrites = 0;
+	private externalWrites: number[] = [];
+	private quietUntil = 0;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -149,6 +176,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 		document.body.removeClass("bc-hide-event-id");
 		document.body.removeClass("bc-hide-fsq");
 		if (this.settleTimer !== null) window.clearTimeout(this.settleTimer);
+		if (this.externalTimer !== null) window.clearTimeout(this.externalTimer);
 		if (this.refreshTimer !== null) window.clearInterval(this.refreshTimer);
 	}
 
@@ -169,21 +197,45 @@ export default class BetterCalendarsPlugin extends Plugin {
 	}
 
 	/** Obsidian calls this when data.json changed on disk (Obsidian Sync brought another device's copy). */
-	async onExternalSettingsChange(): Promise<void> {
+	/**
+	 * Obsidian calls this when data.json changed on disk (Sync brought another
+	 * device's copy, or, on some phones, our own write). Bursts are handled
+	 * once, a couple of seconds after the last one.
+	 */
+	onExternalSettingsChange(): void {
+		if (this.externalTimer !== null) window.clearTimeout(this.externalTimer);
+		this.externalTimer = window.setTimeout(() => {
+			this.externalTimer = null;
+			void this.handleExternalSettings();
+		}, EXTERNAL_CHANGE_DELAY_MS);
+	}
+
+	private async handleExternalSettings(): Promise<void> {
+		// Safety valve: if the file keeps changing and this device keeps answering
+		// with writes, something is bouncing between devices. Stop answering for a while.
+		const now = Date.now();
+		this.externalWrites = this.externalWrites.filter((t) => now - t < 60_000);
+		if (now < this.quietUntil) return;
+		if (this.externalWrites.length >= MAX_EXTERNAL_WRITES_PER_MINUTE) {
+			this.quietUntil = now + 10 * 60_000;
+			console.warn("[Better Calendars] the settings file keeps changing; not answering for 10 minutes");
+			return;
+		}
 		const minutes = this.settings.refreshMinutes;
 		const calendars = JSON.stringify(this.settings.calendars);
-		if (!(await this.syncSettings())) return;
+		const writesBefore = this.settingsWrites;
+		const changed = await this.syncSettings();
+		if (this.settingsWrites > writesBefore) this.externalWrites.push(Date.now());
+		if (!changed) return;
 		this.applyHideEventId();
 		if (minutes !== this.settings.refreshMinutes) this.scheduleRefresh();
 		if (calendars !== JSON.stringify(this.settings.calendars)) {
 			void this.manager.refreshAll();
 		}
 		this.refreshViews();
-		// Don't redraw under your fingers while you're typing in the settings.
-		const tab = this.settingTab?.containerEl;
-		if (!(tab && document.activeElement instanceof HTMLElement && tab.contains(document.activeElement))) {
-			this.refreshSettingsTab();
-		}
+		// The settings page isn't redrawn under you (a phone can get changes in bursts);
+		// it says so, and shows them the next time it's opened.
+		this.settingTab?.pwChangedElsewhere();
 	}
 
 	/**
@@ -208,13 +260,15 @@ export default class BetterCalendarsPlugin extends Plugin {
 		const mine = this.settings as unknown as Data;
 		let raw: unknown;
 		try {
-			raw = await this.loadData();
+			raw = await withTimeout(this.loadData(), FILE_TIMEOUT_MS);
 		} catch (e) {
 			// Half-written by Sync, say. Keep memory; the next save merges again.
 			console.warn("[Better Calendars] could not read the settings file; not saving now", e);
 			return false;
 		}
 		const disk = normalizeSettings(raw ?? {}) as unknown as Data;
+		// Nothing changed here or on disk since the last sync: nothing to do.
+		if (sameData(disk, this.baseline) && sameData(mine, this.baseline)) return false;
 		const { write, merged, memoryChanged: changed } = syncStep(mine, this.baseline, disk, Date.now());
 		// Update memory before writing, so an edit made while the file is being written isn't overwritten.
 		if (changed) {
@@ -222,7 +276,15 @@ export default class BetterCalendarsPlugin extends Plugin {
 			Object.assign(mine, merged);
 		}
 		this.baseline = clone(merged);
-		if (write) await this.saveData(write);
+		if (write) {
+			this.settingsWrites++;
+			try {
+				await withTimeout(this.saveData(write), FILE_TIMEOUT_MS);
+			} catch (e) {
+				// Stuck file call (seen on phones): don't hold up later saves; the next one writes again.
+				console.warn("[Better Calendars] saving the settings took too long", e);
+			}
+		}
 		return changed;
 	}
 

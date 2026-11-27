@@ -10,8 +10,6 @@ import {
 } from "./foursquare";
 
 const DEVICE_KEY = "better-calendars-device-id";
-/** How many Swarm check-in ids made from Obsidian are remembered. */
-const MAX_POSTED_IDS = 5000;
 /** Give up on a queued check-in after this many tries. */
 const MAX_ATTEMPTS = 20;
 
@@ -68,9 +66,9 @@ export async function disconnectSwarm(plugin: BetterCalendarsPlugin): Promise<vo
 }
 
 function rememberPosted(plugin: BetterCalendarsPlugin, id: string): void {
+	// Never trimmed: the list is merged between devices as a union.
 	const ids = plugin.settings.swarmPostedIds;
-	ids.push(id);
-	if (ids.length > MAX_POSTED_IDS) ids.splice(0, ids.length - MAX_POSTED_IDS);
+	if (!ids.includes(id)) ids.push(id);
 }
 
 /** True when the error means "try again later" rather than "this will never work". */

@@ -38,7 +38,11 @@ proto.addClass = function (this: HTMLElement, c: string) {
 proto.setAttr = function (this: HTMLElement, k: string, v: string) {
 	this.setAttribute(k, v);
 };
+proto.isShown = function (this: HTMLElement) {
+	return this.isConnected && this.style.display !== "none";
+};
 (globalThis as Record<string, unknown>).createEl = make;
+(globalThis as Record<string, unknown>).createDiv = (o?: Opts) => make("div", o);
 
 /** Visible text of an element (skips hidden ones). */
 export function visibleText(el: Element): string {

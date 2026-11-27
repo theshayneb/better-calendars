@@ -235,13 +235,13 @@ describe("settings merge between devices", () => {
 		expect((stale.swarmQueue as unknown[]).length).toBe(1);
 	});
 
-	it("check-ins posted from Obsidian are a union, capped at the newest 5000", () => {
+	it("check-ins posted from Obsidian are a union, never trimmed", () => {
 		const disk = { swarmPostedIds: Array.from({ length: 5000 }, (_, i) => `d${i}`) };
 		const merged = mergeData(disk, { swarmPostedIds: ["new"] }, T0);
 		const ids = merged.swarmPostedIds as string[];
-		expect(ids).toHaveLength(5000);
+		expect(ids).toHaveLength(5001);
 		expect(ids[ids.length - 1]).toBe("new");
-		expect(ids[0]).toBe("d1");
+		expect(ids[0]).toBe("d0");
 	});
 
 	it("old-format data (no edit times, from 1.3.x) is kept, and loses to stamped edits", () => {
@@ -368,5 +368,26 @@ describe("saving stays cheap with a big Swarm history (1.4.1: settings froze on 
 		expect(sameData({ a: [1, 2] }, { a: [2, 1] })).toBe(false);
 		expect(sameData({ a: { x: 1 } }, { a: { x: 1, y: 0 } })).toBe(false);
 		expect(sameData({ a: 1, [META_KEY]: { keys: { a: 5 }, items: {}, gone: {} } }, { a: 1 })).toBe(false);
+	});
+});
+
+describe("no endless back-and-forth (1.4.2: settings froze on mobile)", () => {
+	it("a full list of check-ins posted from Obsidian doesn't make devices rewrite each other forever", () => {
+		const ids = Array.from({ length: 5000 }, (_, i) => `a${i}`);
+		const { desktop, phone, toDesktop, toPhone } = pair({ swarmPostedIds: ids });
+		phone.s.swarmPostedIds.push("p1");
+		phone.s.swarmPostedIds.splice(0, 1); // the phone trims to the cap, as rememberPosted does
+		phone.sync(T0);
+		let rounds = 0;
+		for (; rounds < 10; rounds++) {
+			const before = desktop.writes + phone.writes;
+			toDesktop();
+			desktop.sync(T0 + 10 * rounds + 1);
+			toPhone();
+			phone.sync(T0 + 10 * rounds + 2);
+			if (desktop.writes + phone.writes === before) break;
+		}
+		expect(rounds).toBeLessThan(3);
+		expect(desktop.s.swarmPostedIds).toContain("p1");
 	});
 });
