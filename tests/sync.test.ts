@@ -329,3 +329,44 @@ describe("import decisions", () => {
 		expect(importAction(o)).toBe("create");
 	});
 });
+
+describe("saving stays cheap with a big Swarm history (1.4.1: settings froze on mobile)", () => {
+	const big = () =>
+		normalizeSettings({
+			swarmReviewed: Array.from({ length: 40000 }, (_, i) => `checkin-${i}`),
+			swarmPostedIds: Array.from({ length: 5000 }, (_, i) => `posted-${i}`),
+			swarmSkippedPlaces: Array.from({ length: 2000 }, (_, i) => `venue-${i}`),
+			imported: Object.fromEntries(Array.from({ length: 800 }, (_, i) => [`e${i}`, i])),
+		}) as unknown as Data;
+
+	it("a save after typing in a settings field writes just that change, and its echo writes nothing", () => {
+		const disk = big();
+		const mine = clone(disk);
+		const baseline = clone(disk);
+		(mine as { eventFolder?: string }).eventFolder = "Meetings";
+		const { write, merged } = syncStep(mine, baseline, disk, T0);
+		expect(write?.eventFolder).toBe("Meetings");
+		expect(write?.swarmReviewed).toBe(disk.swarmReviewed); // the big list is reused, not rebuilt
+		// Our own write coming back as an external change: nothing to do.
+		const echo = syncStep(mine, clone(merged), clone(write as Data), T0 + 1);
+		expect(echo.write).toBeNull();
+		expect(echo.memoryChanged).toBe(false);
+	});
+
+	it("long id lists still merge correctly through the fast path", () => {
+		const disk = { swarmReviewed: ["a", "b", "c"] };
+		expect(mergeData(disk, { swarmReviewed: ["a", "b"] }, T0).swarmReviewed).toEqual(["a", "b", "c"]);
+		expect(mergeData(disk, { swarmReviewed: ["a", "b", "c", "d"] }, T0).swarmReviewed).toEqual(["a", "b", "c", "d"]);
+		expect(mergeData(disk, { swarmReviewed: ["x", "b"] }, T0).swarmReviewed).toEqual(["a", "b", "c", "x"]);
+		expect(mergeData({ swarmReviewed: ["1"] }, { swarmReviewed: [1] }, T0).swarmReviewed).toEqual(["1", 1]);
+	});
+
+	it("comparing copies ignores key order, undefined values and empty edit records", () => {
+		expect(sameData({ a: { x: 1, y: [1, 2] }, b: 2 }, { b: 2, a: { y: [1, 2], x: 1 } })).toBe(true);
+		expect(sameData({ a: 1, c: undefined }, { a: 1 })).toBe(true);
+		expect(sameData({ a: 1, [META_KEY]: { keys: {}, items: { imported: {} }, gone: {} } }, { a: 1 })).toBe(true);
+		expect(sameData({ a: [1, 2] }, { a: [2, 1] })).toBe(false);
+		expect(sameData({ a: { x: 1 } }, { a: { x: 1, y: 0 } })).toBe(false);
+		expect(sameData({ a: 1, [META_KEY]: { keys: { a: 5 }, items: {}, gone: {} } }, { a: 1 })).toBe(false);
+	});
+});

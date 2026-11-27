@@ -187,8 +187,10 @@ export function mergeData(disk: Data, mine: Data, now: number): Data {
 			const cap = UNIONS[key] ?? Infinity;
 			const d = Array.isArray(disk[key]) ? (disk[key] as unknown[]) : [];
 			const m = Array.isArray(mine[key]) ? (mine[key] as unknown[]) : [];
-			const have = new Set(d.map((x) => json(x)));
-			const extra = m.filter((x) => !have.has(json(x)));
+			// Usual case: the same list on both sides (or this side is a prefix of the disk's).
+			if (key in disk && m.length <= d.length && m.every((x, i) => x === d[i])) continue;
+			const have = new Set(d.map(unionKey));
+			const extra = m.filter((x) => !have.has(unionKey(x)));
 			if (extra.length === 0 && key in disk) continue;
 			let list = [...d, ...extra];
 			if (list.length > cap) list = list.slice(list.length - cap);
@@ -242,30 +244,39 @@ export function mergeData(disk: Data, mine: Data, now: number): Data {
 	return result;
 }
 
-/** Whether two data copies are the same (what would be written). */
+/** Union entries are id strings; anything else is compared as JSON. */
+const unionKey = (x: unknown): string => (typeof x === "string" ? `s${x}` : `j${json(x)}`);
+
+/**
+ * Whether two data copies are the same (what would be written). Key order,
+ * undefined values and empty meta parts don't count as differences.
+ * Compares in place, without copying: settings can hold tens of thousands
+ * of ids, and this runs on every save, also on phones.
+ */
 export function sameData(a: Data, b: Data): boolean {
-	return json(canonical(a)) === json(canonical(b));
+	const keys = (o: Data) => Object.keys(o).filter((k) => k !== META_KEY && o[k] !== undefined);
+	const ka = keys(a);
+	if (ka.length !== keys(b).length) return false;
+	for (const k of ka) if (!(k in b) || !equal(a[k], b[k])) return false;
+	return equal(tidyMeta(metaOf(a)), tidyMeta(metaOf(b)));
 }
 
-/** Key order and empty meta parts don't count as differences. */
-function canonical(v: unknown): unknown {
-	if (Array.isArray(v)) return v.map(canonical);
-	if (v && typeof v === "object") {
-		const out: Record<string, unknown> = {};
-		for (const k of Object.keys(v).sort()) {
-			const x = (v as Record<string, unknown>)[k];
-			if (x === undefined) continue;
-			out[k] = canonical(x);
-		}
-		if (META_KEY in out) {
-			const meta = tidyMeta(metaOf(v as Data));
-			const empty = Object.keys(meta.keys).length + Object.keys(meta.items).length + Object.keys(meta.gone).length === 0;
-			if (empty) delete out[META_KEY];
-			else out[META_KEY] = canonical(meta);
-		}
-		return out;
+function equal(a: unknown, b: unknown): boolean {
+	if (a === b) return true;
+	if (Array.isArray(a) || Array.isArray(b)) {
+		if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+		for (let i = 0; i < a.length; i++) if (!equal(a[i], b[i])) return false;
+		return true;
 	}
-	return v;
+	if (a && b && typeof a === "object" && typeof b === "object") {
+		const x = a as Record<string, unknown>;
+		const y = b as Record<string, unknown>;
+		const kx = Object.keys(x).filter((k) => x[k] !== undefined);
+		if (kx.length !== Object.keys(y).filter((k) => y[k] !== undefined).length) return false;
+		for (const k of kx) if (y[k] === undefined || !equal(x[k], y[k])) return false;
+		return true;
+	}
+	return false;
 }
 
 export function clone<T>(v: T): T {

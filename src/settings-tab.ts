@@ -12,19 +12,45 @@ import { disconnectSwarm, startSwarmConnect } from "./checkins/swarm";
 import { normalizeTag } from "./checkins/logic";
 import { openReview } from "./checkins/review-modal";
 
+/** Wait this long after the last change in the settings before saving. */
+const SAVE_DELAY_MS = 800;
+
 export class BetterCalendarsSettingTab extends PluginSettingTab {
 	constructor(app: App, private readonly plugin: BetterCalendarsPlugin) {
 		super(app, plugin);
+	}
+
+	private pwSaveTimer: number | null = null;
+
+	/**
+	 * Saving merges with the settings file (read, merge, write), which takes
+	 * a while with a big Swarm history, and text fields change on every
+	 * keystroke. So changes are saved once you pause, and when the settings
+	 * close or the app goes to the background.
+	 */
+	private pwSaveSoon(): Promise<void> {
+		if (this.pwSaveTimer !== null) window.clearTimeout(this.pwSaveTimer);
+		this.pwSaveTimer = window.setTimeout(() => this.pwSaveNow(), SAVE_DELAY_MS);
+		return Promise.resolve();
+	}
+
+	/** Save pending changes right away (if any). */
+	pwSaveNow(): void {
+		if (this.pwSaveTimer === null) return;
+		window.clearTimeout(this.pwSaveTimer);
+		this.pwSaveTimer = null;
+		void this.plugin.saveSettings().then(() => this.plugin.refreshViews());
+	}
+
+	hide(): void {
+		this.pwSaveNow();
 	}
 
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
 		const settings = this.plugin.settings;
-		const save = async () => {
-			await this.plugin.saveSettings();
-			this.plugin.refreshViews();
-		};
+		const save = () => this.pwSaveSoon();
 		const intSetting = (
 			setting: Setting,
 			get: () => number,

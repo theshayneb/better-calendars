@@ -46,6 +46,7 @@ export default class BetterCalendarsPlugin extends Plugin {
 	private baseline: Data = {};
 	/** Settings reads and writes run one at a time. */
 	private syncChain: Promise<unknown> = Promise.resolve();
+	private pendingSync: Promise<boolean> | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -63,9 +64,11 @@ export default class BetterCalendarsPlugin extends Plugin {
 				)
 			);
 		}
-		this.registerDomEvent(document, "visibilitychange", () =>
-			this.settle.onVisibilityChange(document.hidden)
-		);
+		this.registerDomEvent(document, "visibilitychange", () => {
+			this.settle.onVisibilityChange(document.hidden);
+			// Going to the background (phones): save what the settings tab still holds.
+			if (document.hidden) this.settingTab?.pwSaveNow();
+		});
 		this.registerDomEvent(window, "online", () => this.settle.onOnline());
 
 		this.manager = new CalendarManager(
@@ -167,11 +170,12 @@ export default class BetterCalendarsPlugin extends Plugin {
 
 	/** Obsidian calls this when data.json changed on disk (Obsidian Sync brought another device's copy). */
 	async onExternalSettingsChange(): Promise<void> {
-		const before = clone(this.settings);
+		const minutes = this.settings.refreshMinutes;
+		const calendars = JSON.stringify(this.settings.calendars);
 		if (!(await this.syncSettings())) return;
 		this.applyHideEventId();
-		if (before.refreshMinutes !== this.settings.refreshMinutes) this.scheduleRefresh();
-		if (JSON.stringify(before.calendars) !== JSON.stringify(this.settings.calendars)) {
+		if (minutes !== this.settings.refreshMinutes) this.scheduleRefresh();
+		if (calendars !== JSON.stringify(this.settings.calendars)) {
 			void this.manager.refreshAll();
 		}
 		this.refreshViews();
@@ -189,7 +193,13 @@ export default class BetterCalendarsPlugin extends Plugin {
 	 * changed what's on disk. Returns true when memory changed.
 	 */
 	syncSettings(): Promise<boolean> {
-		const run = this.syncChain.then(() => this.doSyncSettings());
+		// A run that hasn't started yet covers every edit made before it starts: join it.
+		if (this.pendingSync) return this.pendingSync;
+		const run = this.syncChain.then(() => {
+			this.pendingSync = null;
+			return this.doSyncSettings();
+		});
+		this.pendingSync = run;
 		this.syncChain = run.catch(() => undefined);
 		return run;
 	}

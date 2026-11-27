@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.1] - 2026-11-27
+
+- Fixed the settings freezing Obsidian on phones and tablets. Since 1.4.0 every save re-reads and merges the settings file, and text fields saved on every keystroke, so typing queued one full merge (and one upload through Sync) per letter. Settings are now saved once you pause typing, when you close the settings, or when the app goes to the background; saves that pile up are combined into one, and the merge itself is much faster with a big Swarm history.
+
 ## [1.4.0] - 2026-11-18
 
 Made for several devices on Obsidian Sync, where a phone or tablet that syncs every few hours or days used to overwrite the desktop's work.
