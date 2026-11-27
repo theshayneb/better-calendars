@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.3] - 2026-11-27
+
+- The settings page opens even if part of it fails: that part shows the error instead, and the rest is drawn. Before, an error anywhere (for example a remembered category tag saved without a name) kept the whole page from opening, with no message on a phone.
+- Category tags without a name and "tags that add another tag" stored as plain text no longer break the page.
+- New command "Show diagnostics": the plugin and Obsidian versions, whether the settings page was drawn, the size of each settings list, and any errors from this plugin this session, with a Copy button. It contains no keys, tokens or note text.
+
 ## [1.4.2] - 2026-11-27
 
 - Fixed Obsidian freezing on phones when opening Better Calendars' settings:

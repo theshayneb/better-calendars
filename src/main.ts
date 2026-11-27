@@ -1,6 +1,7 @@
-import { Notice, Platform, Plugin, TAbstractFile, WorkspaceLeaf, moment } from "obsidian";
+import { Notice, Platform, Plugin, TAbstractFile, WorkspaceLeaf, apiVersion, moment } from "obsidian";
+import { DiagnosticsModal } from "./ui/diagnostics";
 import type { Moment } from "moment";
-import { BetterCalendarsSettings, normalizeSettings } from "./settings";
+import { BetterCalendarsSettings, DEFAULT_SETTINGS, normalizeSettings } from "./settings";
 import { Data, clone, sameData, syncStep } from "./sync/merge";
 import { SyncSettle } from "./sync/settle";
 import {
@@ -74,6 +75,9 @@ export default class BetterCalendarsPlugin extends Plugin {
 	private settingsWrites = 0;
 	private externalWrites: number[] = [];
 	private quietUntil = 0;
+	/** Errors worth reporting (newest last), for "Show diagnostics". Kept in memory only. */
+	private problems: { at: number; where: string; message: string; stack: string }[] = [];
+	private settingsOpened: number[] = [];
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -139,6 +143,23 @@ export default class BetterCalendarsPlugin extends Plugin {
 			id: "test-location",
 			name: "Test location (GPS)",
 			callback: () => openLocationTest(this.app),
+		});
+
+		this.addCommand({
+			id: "show-diagnostics",
+			name: "Show diagnostics",
+			callback: () => new DiagnosticsModal(this.app, this.diagnostics()).open(),
+		});
+		// Errors from this plugin that nothing else caught (no console on phones).
+		const mine = (stack: string) => /better-calendars/i.test(stack);
+		this.registerDomEvent(window, "error", (ev: ErrorEvent) => {
+			const err: unknown = ev.error;
+			const stack = err instanceof Error ? (err.stack ?? "") : `${ev.filename ?? ""}`;
+			if (mine(stack)) this.recordProblem("Uncaught error", err ?? ev.message);
+		});
+		this.registerDomEvent(window, "unhandledrejection", (ev: PromiseRejectionEvent) => {
+			const err: unknown = ev.reason;
+			if (err instanceof Error && mine(err.stack ?? "")) this.recordProblem("Unhandled promise", err);
 		});
 
 		this.settingTab = new BetterCalendarsSettingTab(this.app, this);
@@ -323,6 +344,53 @@ export default class BetterCalendarsPlugin extends Plugin {
 		} catch (e) {
 			console.warn("[Better Calendars] pulling Swarm check-ins failed", e);
 		}
+	}
+
+	recordProblem(where: string, e: unknown): void {
+		const err = e instanceof Error ? e : new Error(String(e));
+		console.warn(`[Better Calendars] ${where}`, err);
+		this.problems.push({ at: Date.now(), where, message: err.message, stack: err.stack ?? "" });
+		if (this.problems.length > 20) this.problems.shift();
+	}
+
+	noteSettingsOpened(): void {
+		this.settingsOpened.push(Date.now());
+		if (this.settingsOpened.length > 10) this.settingsOpened.shift();
+	}
+
+	/** Plain-text report for "Show diagnostics". No keys, tokens or note contents. */
+	diagnostics(): string {
+		const s = this.settings as unknown as Record<string, unknown>;
+		const t = (ms: number) => (ms ? moment(ms).format("YYYY-MM-DD HH:mm:ss") : "never");
+		const size = (v: unknown) =>
+			Array.isArray(v) ? v.length : v && typeof v === "object" ? Object.keys(v).length : 0;
+		let bytes = 0;
+		try {
+			bytes = JSON.stringify(this.settings).length;
+		} catch (e) {
+			this.recordProblem("Measuring settings", e);
+		}
+		const lines = [
+			`Better Calendars ${this.manifest.version}, Obsidian ${apiVersion}`,
+			`Device: ${Platform.isAndroidApp ? "Android" : Platform.isIosApp ? "iOS" : Platform.isDesktopApp ? "desktop" : "other"}${Platform.isTablet ? " tablet" : Platform.isPhone ? " phone" : ""}`,
+			`Now: ${t(Date.now())}`,
+			`Background tasks here: ${this.backgroundOnThisDevice() ? "on" : "off"}; ${this.settle?.describe() ?? "no sync tracker"}; last run ${t(this.lastBackgroundRun())}`,
+			`Settings page registered: ${this.settingTab ? "yes" : "no"}; drawn ${this.settingsOpened.length} time(s) this session${this.settingsOpened.length ? `, last ${t(this.settingsOpened[this.settingsOpened.length - 1] ?? 0)}` : ""}`,
+			`Settings file writes this session: ${this.settingsWrites}; pausing answers until ${t(this.quietUntil)}`,
+			`Settings size: ${Math.round(bytes / 1024)} KB`,
+			...[
+				"calendars", "imported", "noteNames", "peopleAdded", "categoryTags", "impliedTags",
+				"checkinTags", "ratingOptions", "swarmReviewed", "swarmPostedIds", "swarmSkipped",
+				"swarmSkippedPlaces", "swarmQueue",
+			].map((k) => `  ${k}: ${size(s[k])}${s[k] !== undefined && typeof s[k] !== "object" ? ` (not a list: ${typeof s[k]})` : ""}`),
+			`Unknown keys: ${Object.keys(s).filter((k) => !(k in DEFAULT_SETTINGS) && k !== "_sync").join(", ") || "none"}`,
+			"",
+			this.problems.length === 0 ? "Problems: none recorded this session." : "Problems (newest last):",
+			...this.problems.map(
+				(p) => `- ${t(p.at)} ${p.where}: ${p.message}\n${p.stack.split("\n").slice(0, 8).join("\n")}`
+			),
+		];
+		return lines.join("\n");
 	}
 
 	/** Redraw the settings tab if it is open (e.g. after Swarm sign-in). */

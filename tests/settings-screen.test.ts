@@ -21,10 +21,16 @@ function tab(raw: Record<string, unknown>, background = false) {
 		backgroundOnThisDevice: () => background,
 		lastBackgroundRun: () => 0,
 		lastLocation: () => null,
+		problems: [] as string[],
+		recordProblem(where: string, e: unknown) {
+			this.problems.push(`${where}: ${e instanceof Error ? e.message : String(e)}`);
+		},
+		noteSettingsOpened: () => {},
 		saveSettings: async () => {},
 		refreshViews: () => {},
 	};
-	return new BetterCalendarsSettingTab(app as never, plugin as never);
+	const t = new BetterCalendarsSettingTab(app as never, plugin as never);
+	return Object.assign(t, { fake: plugin });
 }
 
 describe("settings screen", () => {
@@ -55,6 +61,33 @@ describe("settings screen", () => {
 		const t = tab({});
 		t.hide();
 		expect((t as unknown as { hidden: number }).hidden).toBe(1);
+	});
+
+	it("opens with odd settings data from older versions", () => {
+		const t = tab({
+			categoryTags: { a: { tag: "food" }, b: null, c: { name: "Café", tag: "tea" } },
+			impliedTags: { pizza: "food" },
+		});
+		t.display();
+		const text = visibleText(t.containerEl);
+		expect(text).toContain("Café");
+		expect(text).toContain("Run background tasks on this device");
+		expect(t.fake.problems).toEqual([]);
+	});
+
+	it("a part that fails shows its error and the rest of the page still opens", () => {
+		const t = tab({});
+		t.fake.manager.getStatus = () => {
+			throw new Error("boom");
+		};
+		t.fake.settings.calendars.push({ id: "1", name: "Work", url: "", color: "#000", enabled: true, autoImport: true, folder: "", template: "", titlePattern: "", excludeAllDay: true });
+		t.display();
+		const text = visibleText(t.containerEl);
+		expect(text).toContain("Calendars: couldn't be shown");
+		expect(text).toContain("boom");
+		expect(text).toContain("Run background tasks on this device");
+		expect(text).toContain("Check-ins");
+		expect(t.fake.problems).toEqual(["Settings, Calendars: boom"]);
 	});
 
 	it("draws quickly with a big history", () => {

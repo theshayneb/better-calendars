@@ -511,3 +511,12 @@ textarea.bc-ci-input {
 	padding: 0 var(--size-4-3);
 	min-height: 32px;
 }
+
+.bc-diagnostics {
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-size: var(--font-smaller);
+	max-height: 50vh;
+	overflow: auto;
+	user-select: text;
+}

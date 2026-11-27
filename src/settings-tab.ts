@@ -60,6 +60,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		this.plugin.noteSettingsOpened();
 		const { containerEl } = this;
 		containerEl.empty();
 		this.pwChangedNote = null;
@@ -84,7 +85,9 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				});
 			});
 
-		// Calendars
+		const section = (name: string, draw: () => void) => this.pwSection(name, draw);
+
+		section("Calendars", () => {
 		new Setting(containerEl).setName("Calendars").setHeading();
 		containerEl.createEl("p", {
 			cls: "setting-item-description",
@@ -117,7 +120,9 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				})
 		);
 
-		// Event notes
+		});
+
+		section("Event notes", () => {
 		new Setting(containerEl).setName("Event notes").setHeading();
 		new Setting(containerEl)
 			.setName("Import events automatically")
@@ -377,7 +382,9 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				})
 			);
 
-		// Daily notes
+		});
+
+		section("Daily notes", () => {
 		const core = coreDailyNoteOptions(this.app);
 		new Setting(containerEl).setName("Daily notes").setHeading();
 		containerEl.createEl("p", {
@@ -446,7 +453,9 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 			60
 		);
 
-		// Templater + view
+		});
+
+		section("Calendar view", () => {
 		new Setting(containerEl).setName("Calendar view").setHeading();
 		new Setting(containerEl)
 			.setName("Run Templater on new notes")
@@ -496,7 +505,25 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 					await save();
 				})
 			);
-		this.renderCheckins(save);
+		});
+
+		section("Check-ins", () => this.renderCheckins(save));
+	}
+
+	/**
+	 * Draw one part of the page. If it fails (unexpected settings data, say),
+	 * show the error there and go on with the rest, instead of the whole page
+	 * not opening; "Show diagnostics" lists the error too.
+	 */
+	private pwSection(name: string, draw: () => void): void {
+		try {
+			draw();
+		} catch (e) {
+			this.plugin.recordProblem(`Settings, ${name}`, e);
+			new Setting(this.containerEl).setName(`${name}: couldn't be shown`).setDesc(
+				`${e instanceof Error ? e.message : String(e)}. Run "Better Calendars: Show diagnostics" from the command palette and send what it shows.`
+			);
+		}
 	}
 
 	private renderCheckins(save: () => Promise<void>): void {
@@ -718,7 +745,7 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				t.inputEl.rows = 4;
 				t.setValue(
 					Object.entries(settings.impliedTags)
-						.map(([k, v]) => `${k}: ${v.join(", ")}`)
+						.map(([k, v]) => `${k}: ${(Array.isArray(v) ? v : [String(v)]).join(", ")}`)
 						.join("\n")
 				).onChange(async (v) => {
 					const map: Record<string, string[]> = {};
@@ -733,9 +760,10 @@ export class BetterCalendarsSettingTab extends PluginSettingTab {
 				});
 			});
 
-		const cats = Object.entries(settings.categoryTags).sort((a, b) =>
-			a[1].name.localeCompare(b[1].name)
-		);
+		// Tolerate entries missing a name or tag (older or damaged data).
+		const cats = Object.entries(settings.categoryTags)
+			.map(([id, e]) => [id, { name: String(e?.name || id), tag: typeof e?.tag === "string" ? e.tag : "" }] as const)
+			.sort((a, b) => a[1].name.localeCompare(b[1].name));
 		new Setting(containerEl)
 			.setName("Tag per category")
 			.setDesc(
